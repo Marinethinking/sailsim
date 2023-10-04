@@ -1,0 +1,83 @@
+{
+  "project_info": {
+    "project_number": "492059946276",
+    "firebase_url": "https://marinestation-2baa3-default-rtdb.firebaseio.com",
+    "project_id": "marinestation-2baa3",
+    "storage_bucket": "marinestation-2baa3.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:492059946276:android:ade8eb6b9540d82bd8d7b1",
+        "android_client_info": {
+          "package_name": "com.mt.nami"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "492059946276-bnlq4q9bbv6ke0609lj6q312lngh2nn2.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCRnS2JnvQTQIdyfGvK1HlRdc8K1JX85XY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "492059946276-bnlq4q9bbv6ke0609lj6q312lngh2nn2.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "492059946276-39b4gnrv40j0kci5a5some2lojiendq3.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.mt.marinestation"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:492059946276:android:5ebe5947368dd2add8d7b1",
+        "android_client_info": {
+          "package_name": "sailsim.mt.com"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "492059946276-bnlq4q9bbv6ke0609lj6q312lngh2nn2.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCRnS2JnvQTQIdyfGvK1HlRdc8K1JX85XY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "492059946276-bnlq4q9bbv6ke0609lj6q312lngh2nn2.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "492059946276-39b4gnrv40j0kci5a5some2lojiendq3.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.mt.marinestation"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

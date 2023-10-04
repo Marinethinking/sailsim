@@ -1,0 +1,45 @@
+pulugins:
+https://blog.ricoh360.com/en-plugin
+https://thetaplugin.oppget.com/items/theta-rtsp-streaming
+
+rtmp wireless live streaming 
+http://192.168.20.213:8888/index_x_v012000.html
+
+RTSP plugin source code
+ https://github.com/science-arts/THETA-RTSP-plugin
+
+Stream on linux:
+ https://community.theta360.guide/t/live-stream-ricoh-theta-x-on-ubuntu-22-04/7992
+
+ubuntu streaming commands
+sudo modprobe v4l2loopback
+ v4l2-ctl --list-devices
+
+
+ffmpeg local camera to rtsp:
+sudo ffmpeg -f v4l2 -framerate 24 -video_size 1920x960 -i /dev/video0 -f rtsp -rtsp_transport tcp rtsp://192.168.20.103:8564/x
+ffplay "rtsp://192.168.20.103:8564/x"
+VLC player can stream local camera to rtsp stream.
+
+Thetax wireless streaming to local rtmp server(ffmpeg)
+ffmpeg -f flv -listen 1 -i rtmp://192.168.20.103:8889 -c copy -f flv -listen 1 rtmp://localhost:1935/live/app
+
+RTMP server with docker container:
+https://hub.docker.com/r/alqutami/rtmp-hls
+
+
+OSC live preview:
+http://192.168.20.212/getLivePreview
+THETAYR14100340/14100340
+can not setup resolution, details in https://community.theta360.guide/t/howto-live-stream-to-browser-direct-from-camera-with-330ms-latency/9220/6
+
+RTSP Server:
+https://hub.docker.com/r/bluenviron/mediamtx
+
+Thetax to rtsp server:
+ffmpeg -f lavfi -i anullsrc -f v4l2 -s 1920x960 -r 10 -i /dev/video0 \
+-vcodec libx264 -pix_fmt yuv420p  -b:v 2500k \
+-codec:a libmp3lame -ar 44100 -b:a 11025 -bufsize 512k \
+-f rtsp -rtsp_transport tcp rtsp://192.168.20.103:8554/live
+
+ffmpeg -f lavfi -i anullsrc -f v4l2 -s 1920x960 -r 10 -i /dev/video0  -f rtsp -rtsp_transport tcp rtsp://192.168.20.103:8554/live

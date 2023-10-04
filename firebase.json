@@ -1,0 +1,24 @@
+{
+  "hosting": {
+    "site": "sailsim",
+    "public": "web",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ],
+    "headers": [
+      {
+        "source": "**/*.gz",
+        "headers": [
+          {
+            "key": "Content-Encoding",
+            "value": "gzip"
+          }
+        ]
+      }
+    ]
+  }
+}
