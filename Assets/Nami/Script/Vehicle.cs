@@ -14,7 +14,7 @@ namespace Nami
         public Vector2 lookInput;
         public GameObject CinemachineCameraTarget;
         NamiCloud nc;
-        public string VehicleId = "vehicle_sim";
+        public string VehicleId = "simboat";
         public TMP_InputField VehicleIdInput;
 
         public float throttle;

@@ -21,7 +21,7 @@ Try your keyboard WSAD
 
 ## TODO
 
-1. Lidar, there is no URP lidar simulator, will try HDRP with better water system.
+1. Lidar, there is no URP lidar simulator, will try HDRP with better water system. <https://github.com/Field-Robotics-Japan/UnitySensors/tree/master>
 2. Perception, including 3D reconstructin, object detection.
 3. More models, including wind tower, animals, boats etc.
 4. Multiple cameras.
@@ -36,7 +36,7 @@ Try your keyboard WSAD
 5. Download google-service.json from your firebase project, and copy to the Assets folder.
 6. Download firebase unity package and import to your unity project, only auth and database is enough.
 7. In Firebase Auth, create an email account. sim@mt.com/123456 user name and password are hardcoded in code for now, you can change it in NamiCloud.cs
-8. Run in editor. Default vehicle id is vehicle_sim, you can change it by input and enter.
+8. Run in editor. Default vehicle id is simboat, you can change it by input and enter.
 
 ## Get Start from Binary file
 

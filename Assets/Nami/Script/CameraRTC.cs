@@ -17,15 +17,16 @@ namespace Nami
 
     public class CameraRTC : MonoBehaviour
     {
-        public string VehicleId = "vehicle_sim";
+        public string VehicleId = "simboat";
         public Camera cam;
         private MediaStream videoStream;
         private List<RTCModel> rtcs = new List<RTCModel>();
 
         NamiCloudNative nc = NamiCloud.Instance() as NamiCloudNative;
 
-        private void Awake()
+        private void Start()
         {
+            Debug.Log("CameraRTC start...." + VehicleId);
             Invoke("ListenCameraRequest", 2);
             Invoke("captureStream", 2);
         }
@@ -44,7 +45,7 @@ namespace Nami
             DatabaseReference camRef = nc.GetCameraRequestRef();
             camRef.ValueChanged -= OnCameraRequest;
 
-            Awake();
+            Start();
         }
 
         private void RemoveTracks()
@@ -67,6 +68,7 @@ namespace Nami
 
         private void captureStream()
         {
+            Debug.Log("captureStream...   ");
             if (videoStream == null)
             {
                 videoStream = cam.CaptureStream(1920, 1080);

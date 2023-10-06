@@ -1,3 +1,6 @@
+using System.Linq.Expressions;
+// using System.Reflection.PortableExecutable;
+// using System.Diagnostics;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -65,8 +68,8 @@ namespace Nami
             rtdb = FirebaseDatabase.GetInstance(app);
 #else
             auth = FirebaseAuth.DefaultInstance;
-            rtdb=FirebaseDatabase.DefaultInstance;
-           
+            rtdb = FirebaseDatabase.DefaultInstance;
+
 #endif
             rtdbRef = rtdb.RootReference;
 
@@ -98,7 +101,7 @@ namespace Nami
 
         public override void Start()
         {
-
+            Debug.Log("Cloud start..." + VehicleId);
             rigidbody = vehicleObject.GetComponent<Rigidbody>();
             ListenCommand();
         }
@@ -161,7 +164,7 @@ namespace Nami
 
         private void ListenCommand()
         {
-
+            Debug.Log("ListenCommand....");
             DatabaseReference cmdRef = GetCommandRef();
 
             cmdRef.ValueChanged += OnCommandChange;
