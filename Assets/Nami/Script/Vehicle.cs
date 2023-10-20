@@ -114,7 +114,7 @@ namespace Nami
 
             engine.Accelerate(throttle);
             engine.Turn(steering);
-
+            Debug.Log(steering + "    throttle: " + throttle);
         }
 
         private void LateUpdate()
@@ -143,26 +143,22 @@ namespace Nami
         private void OnCommand(Command com)
         {
             Debug.Log("Vehicle OnCommand: " + com.command);
-            if (com.command == 3559) CloudMove(com);
+            if (com.command == 3560) CloudMove(com);
 
         }
 
         private void CloudMove(Command com)
         {
-            Debug.Log("Cloud Move: " + com.result + " " + com.param1);
+
             if (com.result == 0)
             {
                 brake = 1;
                 return;
             }
             brake = 0;
-            if (com.param1 > 0.1) steering = 1;
-            else if (com.param1 < -0.1) steering = -1;
-            else steering = 0;
+            steering = -com.param2 / 20f;
+            throttle = com.param1 / 20f;
 
-            if (com.param2 > 0.1) throttle = 1;
-            else if (com.param2 < -0.1) throttle = -1;
-            else throttle = 0;
         }
 
 

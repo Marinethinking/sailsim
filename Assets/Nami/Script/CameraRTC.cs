@@ -33,6 +33,7 @@ namespace Nami
 
         public void Restart()
         {
+            Debug.Log("CameraRTC Restart...." + VehicleId);
             try
             {
                 RemoveTracks();
