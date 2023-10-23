@@ -89,9 +89,9 @@ namespace Nami
             RB.AddRelativeTorque(new Vector3(0f, steeringTorque, -steeringTorque * 0.5f) * modifier, ForceMode.Acceleration); // add torque based on input and torque amount
 
             _currentAngle = Mathf.SmoothDampAngle(_currentAngle,
-                60f * modifier,
+                60f * -modifier,
                 ref _turnVel,
-                0.5f,
+                0.3f,
                 10f,
                 Time.fixedTime);
             transform.localEulerAngles = new Vector3(0f, _currentAngle, 0f);
