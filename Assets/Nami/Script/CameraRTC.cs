@@ -18,6 +18,9 @@ namespace Nami
     public class CameraRTC : MonoBehaviour
     {
         public string VehicleId = "simboat";
+
+        [Tooltip("Camera Name")]
+        public string CamId;
         public Camera cam;
         private MediaStream videoStream;
         private List<RTCModel> rtcs = new List<RTCModel>();
@@ -218,6 +221,8 @@ namespace Nami
 
             foreach (DataSnapshot req in reqs)
             {
+                string camName = req.Child("cam").Value as string;
+                if (camName != CamId) continue;
                 var reqId = req.Key;
                 string offer = req.Child("offer").Value as string;
                 Debug.Log(offer);

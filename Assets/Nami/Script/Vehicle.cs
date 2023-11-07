@@ -17,6 +17,9 @@ namespace Nami
         public string VehicleId = "simboat";
         public TMP_InputField VehicleIdInput;
 
+        public CameraRTC cam1;
+        public CameraRTC cam2;
+
         public float throttle;
         public float steering;
         public float brake = 0;
@@ -85,8 +88,14 @@ namespace Nami
         public void Restart()
         {
             CancelInvoke();
-            var camRtc = GetComponent<CameraRTC>();
+            restartCam(cam1);
+            restartCam(cam1);
 
+            SyncCloud();
+        }
+
+        private void restartCam(CameraRTC camRtc)
+        {
             if (camRtc == null)
             {
                 Debug.LogError("Camera RTC script is null.");
@@ -94,8 +103,6 @@ namespace Nami
             }
             camRtc.VehicleId = VehicleId;
             camRtc.Restart();
-
-            SyncCloud();
         }
 
 
@@ -114,7 +121,7 @@ namespace Nami
 
             engine.Accelerate(throttle);
             engine.Turn(steering);
-            Debug.Log(steering + "    throttle: " + throttle);
+            // Debug.Log(steering + "    throttle: " + throttle);
         }
 
         private void LateUpdate()
