@@ -21,7 +21,7 @@ Try your keyboard WSAD
 
 ## TODO
 
-1. Lidar, there is no URP lidar simulator, will try HDRP with better water system. <https://github.com/Field-Robotics-Japan/UnitySensors/tree/master>
+1. Lidar, there is no URP lidar simulator, will try HDRP with better water system. 
 2. Perception, including 3D reconstructin, object detection.
 3. More models, including wind tower, animals, boats etc.
 4. Multiple cameras.
@@ -41,3 +41,11 @@ Try your keyboard WSAD
 ## Get Start from Binary file
 
 Under construction...
+
+## Connect to ROS
+
+Depends on UnitySensors<https://github.com/Field-Robotics-Japan/UnitySensors/tree/master>
+
+1. Setup ROS connector: https://github.com/Unity-Technologies/Unity-Robotics-Hub/blob/main/tutorials/ros_unity_integration/setup.md
+2. Install UnitySensorsROS, just follow the README on https://github.com/Field-Robotics-Japan/UnitySensors
+3. In your Unity Editor Hierarchy, Open NamiScene/Acadia/VLP-16/VelodyneSensor,  change it to ROS sensor. 
