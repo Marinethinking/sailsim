@@ -53,5 +53,8 @@ Depends on UnitySensors<https://github.com/Field-Robotics-Japan/UnitySensors/tre
 ### cloud points to laser scan
 
 Lets say you are on ros2 humble, (or change to your version name)
-apt install ros-humble-pointcloud-to-laserscan
-ros2 run pointcloud_to_laserscan pointcloud_to_laserscan_node
+
+1. apt install ros-humble-pointcloud-to-laserscan
+2. ros2 run pointcloud_to_laserscan pointcloud_to_laserscan_node
+3. Start ros_tcp_endpoint:
+ros2 run ros_tcp_endpoint default_server_endpoint --ros-args -p ROS_IP:=192.168.20.104
