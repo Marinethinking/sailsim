@@ -16,6 +16,16 @@
       },
       "hash": "fe2e6f2e2bb1edc1259b5e0d0c24b5b29464d558"
     },
+    "com.frj.unity-sensors-ros": {
+      "version": "https://github.com/Field-Robotics-Japan/UnitySensors.git?path=/Assets/UnitySensorsROS#v1.0b",
+      "depth": 0,
+      "source": "git",
+      "dependencies": {
+        "com.frj.unity-sensors": "0.1.1",
+        "com.unity.robotics.ros-tcp-connector": "0.7.0-preview"
+      },
+      "hash": "fe2e6f2e2bb1edc1259b5e0d0c24b5b29464d558"
+    },
     "com.unity.2d.sprite": {
       "version": "1.0.0",
       "depth": 0,
@@ -112,7 +122,7 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.memoryprofiler": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "depth": 0,
       "source": "registry",
       "dependencies": {

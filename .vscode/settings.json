@@ -67,5 +67,5 @@
         "WEBGL"
     ],
     "ros.distro": "humble",
-    "dotnet.defaultSolution": "sailsim.sln"
+    "dotnet.defaultSolution": "SailSim.sln"
 }
