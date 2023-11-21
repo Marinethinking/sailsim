@@ -8,10 +8,10 @@ https://github.com/Unity-Technologies/BoatAttack
 
 ## Sample
 
-Web sample, <https://sailsim.web.app/> 
+Web sample, <https://sailsim.web.app/>
 
 Try your keyboard WSAD
-** First load is slow, about 1 minute depending on you network status.  
+\*\* First load is slow, about 1 minute depending on you network status.
 
 ## Feature
 
@@ -21,7 +21,7 @@ Try your keyboard WSAD
 
 ## TODO
 
-1. Lidar, there is no URP lidar simulator, will try HDRP with better water system. 
+1. Lidar, there is no URP lidar simulator, will try HDRP with better water system.
 2. Perception, including 3D reconstructin, object detection.
 3. More models, including wind tower, animals, boats etc.
 4. Multiple cameras.
@@ -31,7 +31,7 @@ Try your keyboard WSAD
 
 1. Create a Firebase project and enable Auth and Realtime database.
 2. Install unity 2022 or later, https://unity.com/download
-3. git clone https://github.com/Marinethinking/sailsim.git  You probably need to install https://git-lfs.com/
+3. git clone https://github.com/Marinethinking/sailsim.git You probably need to install https://git-lfs.com/
 4. From Assets/Nami/ open NamiScene
 5. Download google-service.json from your firebase project, and copy to the Assets folder.
 6. Download firebase unity package and import to your unity project, only auth and database is enough.
@@ -48,4 +48,10 @@ Depends on UnitySensors<https://github.com/Field-Robotics-Japan/UnitySensors/tre
 
 1. Setup ROS connector: https://github.com/Unity-Technologies/Unity-Robotics-Hub/blob/main/tutorials/ros_unity_integration/setup.md
 2. Install UnitySensorsROS, just follow the README on https://github.com/Field-Robotics-Japan/UnitySensors
-3. In your Unity Editor Hierarchy, Open NamiScene/Acadia/VLP-16/VelodyneSensor,  change it to ROS sensor. 
+3. In your Unity Editor Hierarchy, Open NamiScene/Acadia/VLP-16/VelodyneSensor, change it to ROS sensor.
+
+### cloud points to laser scan
+
+Lets say you are on ros2 humble, (or change to your version name)
+apt install ros-humble-pointcloud-to-laserscan
+ros2 run pointcloud_to_laserscan pointcloud_to_laserscan_node
