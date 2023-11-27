@@ -50,6 +50,7 @@ PlayerSettings:
   defaultScreenHeightWeb: 550
   m_StereoRenderingPath: 1
   m_ActiveColorSpace: 1
+  unsupportedMSAAFallback: 0
   m_SpriteBatchVertexThreshold: 300
   m_MTRendering: 1
   mipStripping: 0
@@ -153,6 +154,7 @@ PlayerSettings:
   isWsaHolographicRemotingEnabled: 0
   enableFrameTimingStats: 1
   enableOpenGLProfilerGPURecorders: 1
+  allowHDRDisplaySupport: 0
   useHDRDisplay: 0
   hdrBitDepth: 0
   m_ColorGamuts: 00000000
@@ -641,7 +643,6 @@ PlayerSettings:
   switchScreenResolutionBehavior: 2
   switchUseCPUProfiler: 0
   switchEnableFileSystemTrace: 0
-  switchUseGOLDLinker: 0
   switchLTOSetting: 0
   switchApplicationID: 0x01004b9000490000
   switchNSODependencies: 
@@ -771,7 +772,6 @@ PlayerSettings:
   switchSocketBufferEfficiency: 4
   switchSocketInitializeEnabled: 1
   switchNetworkInterfaceManagerInitializeEnabled: 1
-  switchPlayerConnectionEnabled: 1
   switchUseNewStyleFilepaths: 0
   switchUseLegacyFmodPriorities: 0
   switchUseMicroSleepForYield: 1
@@ -898,7 +898,7 @@ PlayerSettings:
     Nintendo Switch: URP;USE_CUSTOM_METADATA
     PS4: URP;USE_CUSTOM_METADATA
     Stadia: URP;USE_CUSTOM_METADATA
-    Standalone: URP;USE_CUSTOM_METADATA
+    Standalone: URP;USE_CUSTOM_METADATA;ROS2
     WebGL: URP;USE_CUSTOM_METADATA
     Windows Store Apps: URP;USE_CUSTOM_METADATA
     XboxOne: URP;USE_CUSTOM_METADATA

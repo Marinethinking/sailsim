@@ -53,5 +53,8 @@ Depends on UnitySensors<https://github.com/Field-Robotics-Japan/UnitySensors/tre
 ### cloud points to laser scan
 
 Lets say you are on ros2 humble, (or change to your version name)
-apt install ros-humble-pointcloud-to-laserscan
-ros2 run pointcloud_to_laserscan pointcloud_to_laserscan_node
+
+1. In unity editor, install package by git url : https://github.com/Field-Robotics-Japan/UnitySensors.git?path=/Assets/UnitySensorsROS#v1.0b
+2. Setup Unity Ros connector: https://github.com/Unity-Technologies/Unity-Robotics-Hub/blob/main/tutorials/ros_unity_integration/setup.md
+3. apt install ros-humble-pointcloud-to-laserscan
+4. ros2 run pointcloud_to_laserscan pointcloud_to_laserscan_node
