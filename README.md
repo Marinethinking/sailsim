@@ -58,3 +58,5 @@ Lets say you are on ros2 humble, (or change to your version name)
 2. Setup Unity Ros connector: https://github.com/Unity-Technologies/Unity-Robotics-Hub/blob/main/tutorials/ros_unity_integration/setup.md
 3. apt install ros-humble-pointcloud-to-laserscan
 4. ros2 run pointcloud_to_laserscan pointcloud_to_laserscan_node
+5. Start ros_tcp_endpoint:
+   ros2 run ros_tcp_endpoint default_server_endpoint --ros-args -p ROS_IP:=192.168.20.104
