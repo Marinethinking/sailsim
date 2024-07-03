@@ -213,7 +213,7 @@ GameObject:
   - component: {fileID: 4931785166026368993}
   - component: {fileID: 7572853999570586003}
   m_Layer: 5
-  m_Name: TMP SubMeshUI [LuckiestGuy-Regular SDF Material + LiberationSans SDF Atlas]
+  m_Name: 'TMP SubMeshUI [LuckiestGuy-Regular SDF Material + LiberationSans SDF Atlas]'
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -956,7 +956,7 @@ GameObject:
   - component: {fileID: 8939162687614854579}
   - component: {fileID: 3718502391143991543}
   m_Layer: 5
-  m_Name: TMP SubMeshUI [LuckiestGuy-Regular SDF Material + LiberationSans SDF Atlas]
+  m_Name: 'TMP SubMeshUI [LuckiestGuy-Regular SDF Material + LiberationSans SDF Atlas]'
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1428,7 +1428,7 @@ GameObject:
   - component: {fileID: 2865248126556027727}
   - component: {fileID: 4882598298131784987}
   m_Layer: 5
-  m_Name: TMP SubMeshUI [LuckiestGuy-Regular SDF Material + LiberationSans SDF Atlas]
+  m_Name: 'TMP SubMeshUI [LuckiestGuy-Regular SDF Material + LiberationSans SDF Atlas]'
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1681,7 +1681,7 @@ GameObject:
   - component: {fileID: 902066997280951365}
   - component: {fileID: 6596497136707194768}
   m_Layer: 5
-  m_Name: TMP SubMeshUI [LuckiestGuy-Regular SDF Material + LiberationSans SDF Atlas]
+  m_Name: 'TMP SubMeshUI [LuckiestGuy-Regular SDF Material + LiberationSans SDF Atlas]'
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -2028,7 +2028,7 @@ GameObject:
   - component: {fileID: 6601534345780615267}
   - component: {fileID: 4795714619417701917}
   m_Layer: 5
-  m_Name: TMP SubMeshUI [LuckiestGuy-Regular SDF Material + LiberationSans SDF Atlas]
+  m_Name: 'TMP SubMeshUI [LuckiestGuy-Regular SDF Material + LiberationSans SDF Atlas]'
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -3737,7 +3737,7 @@ GameObject:
   - component: {fileID: 4290798229519586794}
   - component: {fileID: 1833772285657208066}
   m_Layer: 5
-  m_Name: TMP SubMeshUI [LuckiestGuy-Regular SDF Material + LiberationSans SDF Atlas]
+  m_Name: 'TMP SubMeshUI [LuckiestGuy-Regular SDF Material + LiberationSans SDF Atlas]'
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -4324,7 +4324,7 @@ GameObject:
   - component: {fileID: 813885510211978850}
   - component: {fileID: 3341204797008564782}
   m_Layer: 5
-  m_Name: TMP SubMeshUI [LuckiestGuy-Regular SDF Material + LiberationSans SDF Atlas]
+  m_Name: 'TMP SubMeshUI [LuckiestGuy-Regular SDF Material + LiberationSans SDF Atlas]'
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -4725,7 +4725,7 @@ GameObject:
   - component: {fileID: 796883725297594494}
   - component: {fileID: 6143261721866396793}
   m_Layer: 5
-  m_Name: TMP SubMeshUI [LuckiestGuy-Regular SDF Material + LiberationSans SDF Atlas]
+  m_Name: 'TMP SubMeshUI [LuckiestGuy-Regular SDF Material + LiberationSans SDF Atlas]'
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -5245,7 +5245,7 @@ Transform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!95 &3300335164659556536
 Animator:
-  serializedVersion: 5
+  serializedVersion: 7
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -5259,6 +5259,7 @@ Animator:
   m_ApplyRootMotion: 0
   m_LinearVelocityBlending: 0
   m_StabilizeFeet: 0
+  m_AnimatePhysics: 0
   m_WarningMessage: 
   m_HasTransformHierarchy: 1
   m_AllowConstantClipSamplingOptimization: 1
@@ -5752,7 +5753,7 @@ GameObject:
   - component: {fileID: 838401792821803897}
   - component: {fileID: 2980184009253829521}
   m_Layer: 5
-  m_Name: TMP SubMeshUI [LuckiestGuy-Regular SDF Material + LiberationSans SDF Atlas]
+  m_Name: 'TMP SubMeshUI [LuckiestGuy-Regular SDF Material + LiberationSans SDF Atlas]'
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

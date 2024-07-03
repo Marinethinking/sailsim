@@ -6,17 +6,18 @@ using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.SceneManagement;
 
+
 namespace BoatAttack.UI
 {
     public class RaceUI : MonoBehaviour
     {
         private Boat _boat;
-        public TextMeshProUGUI lapCounter;
-        public TextMeshProUGUI positionNumber;
-        public TextMeshProUGUI timeTotal;
-        public TextMeshProUGUI timeLap;
-        public TextMeshProUGUI speedText;
-        public TextMeshProUGUI speedFormatText;
+        public TextMesh lapCounter;
+        public TextMesh positionNumber;
+        public TextMesh timeTotal;
+        public TextMesh timeLap;
+        public TextMesh speedText;
+        public TextMesh speedFormatText;
 
         public RectTransform map;
         public GameObject gameplayUi;
@@ -99,7 +100,7 @@ namespace BoatAttack.UI
         private IEnumerator CreateGameStats()
         {
             _raceStats = new RaceStatsPlayer[RaceManager.RaceData.boatCount];
-            for(var i = 0; i < RaceManager.RaceData.boatCount; i++)
+            for (var i = 0; i < RaceManager.RaceData.boatCount; i++)
             {
                 var raceStatLoading = raceStatsPlayer.InstantiateAsync(raceStat.transform);
                 yield return raceStatLoading;

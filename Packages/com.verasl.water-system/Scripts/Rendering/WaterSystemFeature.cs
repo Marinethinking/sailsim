@@ -37,7 +37,7 @@ namespace WaterSystem
                 cameraTextureDescriptor.colorFormat = RenderTextureFormat.Default;
                 // get a temp RT for rendering into
                 cmd.GetTemporaryRT(m_WaterFX.id, cameraTextureDescriptor, FilterMode.Bilinear);
-                ConfigureTarget(m_WaterFX.Identifier());
+                // ConfigureTarget(m_WaterFX.Identifier());
                 // clear the screen with a specific color for the packed data
                 ConfigureClear(ClearFlag.Color, m_ClearColor);
             }
@@ -61,7 +61,7 @@ namespace WaterSystem
                 CommandBufferPool.Release(cmd);
             }
 
-            public override void OnCameraCleanup(CommandBuffer cmd) 
+            public override void OnCameraCleanup(CommandBuffer cmd)
             {
                 // since the texture is used within the single cameras use we need to cleanup the RT afterwards
                 cmd.ReleaseTemporaryRT(m_WaterFX.id);
@@ -93,8 +93,8 @@ namespace WaterSystem
                         ? RenderSettings.sun.transform.localToWorldMatrix
                         : Matrix4x4.TRS(Vector3.zero, Quaternion.Euler(-45f, 45f, 0f), Vector3.one);
                     WaterCausticMaterial.SetMatrix("_MainLightDir", sunMatrix);
-                
-                
+
+
                     // Create mesh if needed
                     if (!m_mesh)
                         m_mesh = GenerateCausticsMesh(1000f);
@@ -131,7 +131,7 @@ namespace WaterSystem
         public override void Create()
         {
             // WaterFX Pass
-            m_WaterFxPass = new WaterFxPass {renderPassEvent = RenderPassEvent.BeforeRenderingOpaques};
+            m_WaterFxPass = new WaterFxPass { renderPassEvent = RenderPassEvent.BeforeRenderingOpaques };
 
             // Caustic Pass
             m_CausticsPass = new WaterCausticsPass();
@@ -144,7 +144,7 @@ namespace WaterSystem
             }
             _causticMaterial = CoreUtils.CreateEngineMaterial(causticShader);
             _causticMaterial.SetFloat("_BlendDistance", settings.causticBlendDistance);
-            
+
             if (causticTexture == null)
             {
                 Debug.Log("Caustics Texture missing, attempting to load.");
@@ -153,7 +153,7 @@ namespace WaterSystem
 #endif
             }
             _causticMaterial.SetTexture(CausticTexture, causticTexture);
-            
+
             switch (settings.debug)
             {
                 case WaterSystemSettings.DebugMode.Caustics:
@@ -216,7 +216,8 @@ namespace WaterSystem
         [System.Serializable]
         public class WaterSystemSettings
         {
-            [Header("Caustics Settings")] [Range(0.1f, 1f)]
+            [Header("Caustics Settings")]
+            [Range(0.1f, 1f)]
             public float causticScale = 0.25f;
 
             public float causticBlendDistance = 3f;

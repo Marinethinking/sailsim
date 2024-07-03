@@ -224,7 +224,7 @@ GameObject:
   - component: {fileID: 7324536109537907891}
   - component: {fileID: 5142229674220934235}
   m_Layer: 5
-  m_Name: TMP SubMeshUI [LuckiestGuy-Regular SDF Material + LiberationSans SDF Atlas]
+  m_Name: 'TMP SubMeshUI [LuckiestGuy-Regular SDF Material + LiberationSans SDF Atlas]'
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

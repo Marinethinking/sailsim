@@ -530,12 +530,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c0422ad0f6acb4f0790f9dfcb8a12c0d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  lapCounter: {fileID: 5347790855832232839}
-  positionNumber: {fileID: 5347790855547287921}
-  timeTotal: {fileID: 5347790856266267881}
-  timeLap: {fileID: 5347790855668333724}
-  speedText: {fileID: 2683827794117070290}
-  speedFormatText: {fileID: 6107676379996783702}
+  lapCounter: {fileID: 0}
+  positionNumber: {fileID: 0}
+  timeTotal: {fileID: 0}
+  timeLap: {fileID: 0}
+  speedText: {fileID: 0}
+  speedFormatText: {fileID: 0}
   map: {fileID: 5347790855586753531}
   gameplayUi: {fileID: 3434570421581432212}
   raceStat: {fileID: 7329524447042817119}

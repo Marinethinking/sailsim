@@ -388,11 +388,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 21d89ad855159435bb924c6ec5544dd6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  place: {fileID: 1155670549187173950}
-  playerName: {fileID: 5324532405065709284}
-  boatType: {fileID: 3393974456527619347}
-  bestLap: {fileID: 3608511208612296465}
-  time: {fileID: 8410545364529771218}
+  place: {fileID: 0}
+  playerName: {fileID: 0}
+  boatType: {fileID: 0}
+  bestLap: {fileID: 0}
+  time: {fileID: 0}
 --- !u!1 &5906836751935656087
 GameObject:
   m_ObjectHideFlags: 0

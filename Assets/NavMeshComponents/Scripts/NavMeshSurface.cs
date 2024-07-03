@@ -304,21 +304,20 @@ namespace UnityEngine.AI
             {
                 if (m_CollectObjects == CollectObjects.All)
                 {
-                    UnityEditor.AI.NavMeshBuilder.CollectSourcesInStage(
-                        null, m_LayerMask, m_UseGeometry, m_DefaultArea, markups, gameObject.scene, sources);
+                    NavMeshBuilder.CollectSources(
+                        null, m_LayerMask, m_UseGeometry, m_DefaultArea, markups, sources);
                 }
                 else if (m_CollectObjects == CollectObjects.Children)
                 {
-                    UnityEditor.AI.NavMeshBuilder.CollectSourcesInStage(
-                        transform, m_LayerMask, m_UseGeometry, m_DefaultArea, markups, gameObject.scene, sources);
+                    NavMeshBuilder.CollectSources(
+                        transform, m_LayerMask, m_UseGeometry, m_DefaultArea, markups, sources);
                 }
                 else if (m_CollectObjects == CollectObjects.Volume)
                 {
                     Matrix4x4 localToWorld = Matrix4x4.TRS(transform.position, transform.rotation, Vector3.one);
                     var worldBounds = GetWorldBounds(localToWorld, new Bounds(m_Center, m_Size));
-
-                    UnityEditor.AI.NavMeshBuilder.CollectSourcesInStage(
-                        worldBounds, m_LayerMask, m_UseGeometry, m_DefaultArea, markups, gameObject.scene, sources);
+                    NavMeshBuilder.CollectSources(
+                        worldBounds, m_LayerMask, m_UseGeometry, m_DefaultArea, markups, sources);
                 }
             }
             else
@@ -378,18 +377,18 @@ namespace UnityEngine.AI
                 switch (src.shape)
                 {
                     case NavMeshBuildSourceShape.Mesh:
-                    {
-                        var m = src.sourceObject as Mesh;
-                        result.Encapsulate(GetWorldBounds(worldToLocal * src.transform, m.bounds));
-                        break;
-                    }
+                        {
+                            var m = src.sourceObject as Mesh;
+                            result.Encapsulate(GetWorldBounds(worldToLocal * src.transform, m.bounds));
+                            break;
+                        }
                     case NavMeshBuildSourceShape.Terrain:
-                    {
-                        // Terrain pivot is lower/left corner - shift bounds accordingly
-                        var t = src.sourceObject as TerrainData;
-                        result.Encapsulate(GetWorldBounds(worldToLocal * src.transform, new Bounds(0.5f * t.size, t.size)));
-                        break;
-                    }
+                        {
+                            // Terrain pivot is lower/left corner - shift bounds accordingly
+                            var t = src.sourceObject as TerrainData;
+                            result.Encapsulate(GetWorldBounds(worldToLocal * src.transform, new Bounds(0.5f * t.size, t.size)));
+                            break;
+                        }
                     case NavMeshBuildSourceShape.Box:
                     case NavMeshBuildSourceShape.Sphere:
                     case NavMeshBuildSourceShape.Capsule:

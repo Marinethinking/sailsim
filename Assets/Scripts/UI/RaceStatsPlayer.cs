@@ -9,11 +9,11 @@ namespace BoatAttack.UI
     public class RaceStatsPlayer : MonoBehaviour
     {
 
-        public TextMeshProUGUI place;
-        public TextMeshProUGUI playerName;
-        public TextMeshProUGUI boatType;
-        public TextMeshProUGUI bestLap;
-        public TextMeshProUGUI time;
+        public TextMesh place;
+        public TextMesh playerName;
+        public TextMesh boatType;
+        public TextMesh bestLap;
+        public TextMesh time;
         private Boat _boat;
         private int _place = -1;
         private bool _update = true;

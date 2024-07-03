@@ -10,7 +10,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 4093994729439204510, guid: 4ed6a17b8f9c64727bbb59e18c3022ac,
         type: 3}
-      propertyPath: options.Array.data[0]
+      propertyPath: 'options.Array.data[0]'
       value: Island
       objectReference: {fileID: 0}
     - target: {fileID: 4426974721752824126, guid: 4ed6a17b8f9c64727bbb59e18c3022ac,

@@ -60,3 +60,19 @@ Lets say you are on ros2 humble, (or change to your version name)
 4. ros2 run pointcloud_to_laserscan pointcloud_to_laserscan_node
 5. Start ros_tcp_endpoint:
    ros2 run ros_tcp_endpoint default_server_endpoint --ros-args -p ROS_IP:=192.168.20.104
+
+### Webrtc to RTMP
+
+1. Install unity package https://github.com/ossrs/srs-unity
+2. Run RSR container on your local media server
+   docker run --name srs -it -p 1935:1935 -p 1985:1985 -p 8080:8080 \
+    --env CANDIDATE=192.168.20.104 -p 8000:8000/udp \
+    ossrs/srs:5 ./objs/srs -c conf/docker.conf
+3.  HTTPS for remote media server
+    docker run --name srs -it -p 1935:1935 -p 1985:1985 -p 8080:8080 -p 1990:1990 -p 8088:8088\
+    --env CANDIDATE=192.168.20.104 -p 8000:8000/udp \
+    ossrs/srs:5 ./objs/srs -c conf/https.docker.conf
+
+
+### Data channel broadcast
+https://www.meetecho.com/blog/data-channels-broadcasting-with-janus/
