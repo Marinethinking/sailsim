@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using System.Text;
 using UnityEngine;
@@ -10,8 +11,8 @@ using UnityEngine;
 [ExecuteAlways]
 public class CameraCalibrationExporter : MonoBehaviour
 {
-[Tooltip("If not set, will use the Camera on this GameObject; if none, Camera.main.")]
-public Camera targetCamera;
+    [Tooltip("If not set, will use the Camera on this GameObject; if none, Camera.main.")]
+    public Camera targetCamera;
 
     [Tooltip("If true, extrinsics use OpenCV convention (+Z forward); otherwise use Unity view matrix (-Z forward).")]
     public bool useOpenCVConvention = true;
@@ -36,6 +37,9 @@ public Camera targetCamera;
 
     [Tooltip("Write export files under Assets (causes asset reimport) or outside the project (recommended).")]
     public bool writeUnderAssetsFolder = false;
+
+    [Tooltip("Optional: absolute directory to write files. If empty, uses persistentDataPath/Calibration or Assets/Calibration based on the toggle above.")]
+    public string outputDirectoryOverride = "";
 
     public bool forceFrontPlusZ = true;
 
@@ -96,7 +100,14 @@ public Camera targetCamera;
         ComputeExtrinsics(cam, referenceFrame, referenceRigidbody, referenceAtRigidbodyCOM, extrinsicsRelativeToReference, useOpenCVConvention, forceFrontPlusZ, out float[] rRowMajor, out Vector3 t);
 
         var text = BuildPerceptionConfig(cam, W, H, fx, fy, cx, cy, rRowMajor, t);
-        Debug.Log($"CameraCalibrationExporter for '{cam.name}':\n\n{text}");
+
+        // Write to disk
+        var dir = ResolveOutputDirectory();
+        try { Directory.CreateDirectory(dir); } catch { }
+        var fileName = $"{SanitizeFileName(cam.name)}_{W}x{H}.txt";
+        var path = Path.Combine(dir, fileName);
+        File.WriteAllText(path, text, new UTF8Encoding(false));
+        Debug.Log($"CameraCalibrationExporter wrote '{path}'.\n\n{text}");
     }
 
     private int ResolveWidth(Camera cam)
@@ -195,6 +206,38 @@ public Camera targetCamera;
         sb.AppendLine("# Translation vector (meters)");
         sb.AppendLine($"t = [{t.x:F6}, {t.y:F6}, {t.z:F6}]");
         return sb.ToString();
+    }
+
+    private string ResolveOutputDirectory()
+    {
+        if (!string.IsNullOrEmpty(outputDirectoryOverride))
+            return ExpandPath(outputDirectoryOverride);
+
+        if (writeUnderAssetsFolder)
+            return Path.Combine(Application.dataPath, "Calibration");
+
+        return Path.Combine(Application.persistentDataPath, "Calibration");
+    }
+
+    private static string SanitizeFileName(string name)
+    {
+        foreach (var c in Path.GetInvalidFileNameChars())
+            name = name.Replace(c, '_');
+        return name;
+    }
+
+    private static string ExpandPath(string path)
+    {
+        if (string.IsNullOrEmpty(path)) return path;
+        // Expand leading ~ to user home
+        if (path.StartsWith("~/") || path == "~")
+        {
+            var home = Environment.GetFolderPath(Environment.SpecialFolder.Personal);
+            if (path.Length == 1) return home;
+            return Path.Combine(home, path.Substring(2));
+        }
+        // Expand environment variables like $HOME or %USERPROFILE%
+        return Environment.ExpandEnvironmentVariables(path);
     }
 
 }

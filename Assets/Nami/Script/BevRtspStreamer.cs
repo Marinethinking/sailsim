@@ -66,7 +66,8 @@ namespace Nami
                 var width = Mathf.Max(16, sc.width);
                 var height = Mathf.Max(16, sc.height);
 
-                var rt = new RenderTexture(width, height, 0, RenderTextureFormat.ARGB32)
+                // Use HDR RT so URP post-processing (e.g. Bloom) is applied correctly
+                var rt = new RenderTexture(width, height, 0, RenderTextureFormat.DefaultHDR)
                 {
                     useMipMap = false,
                     antiAliasing = 1,
@@ -77,15 +78,21 @@ namespace Nami
                 };
                 rt.Create();
                 sc.camera.targetTexture = rt;
-                sc.camera.allowHDR = false;
+                // Do not disable HDR; enable it so post-processing can render
+                sc.camera.allowHDR = true;
                 sc.camera.allowMSAA = false;
 
                 var urp = sc.camera.GetUniversalAdditionalCameraData();
                 if (urp != null)
                 {
-                    urp.renderPostProcessing = false;
-                    urp.volumeLayerMask = 0;
-                    urp.volumeTrigger = null;
+                    // Respect camera inspector settings. If PP is enabled but mask/trigger are unset, set safe defaults
+                    if (urp.renderPostProcessing)
+                    {
+                        if (urp.volumeLayerMask == 0)
+                            urp.volumeLayerMask = ~0; // include all layers by default
+                        if (urp.volumeTrigger == null)
+                            urp.volumeTrigger = sc.camera.transform;
+                    }
                 }
 
                 var url = rtspBaseUrl.TrimEnd('/') + "/" + sc.streamName;
