@@ -67,7 +67,7 @@ namespace Nami
                 var height = Mathf.Max(16, sc.height);
 
                 // Use HDR RT so URP post-processing (e.g. Bloom) is applied correctly
-                var rt = new RenderTexture(width, height, 0, RenderTextureFormat.DefaultHDR)
+                var rt = new RenderTexture(width, height, 24, RenderTextureFormat.DefaultHDR)
                 {
                     useMipMap = false,
                     antiAliasing = 1,
@@ -194,7 +194,19 @@ namespace Nami
                 var bitrate = _bitrateKbps <= 0 ? 4000 : _bitrateKbps;
                 // Minimal, robust filter chain: vertical flip (optional) and NV12 conversion
                 var vfChain = _flipVertical ? "-vf vflip,format=nv12" : "-vf format=nv12";
-                var args = $"-f rawvideo -pix_fmt rgba -s {_width}x{_height} -r {_fps} -i - {vfChain} -f rtsp -rtsp_transport tcp -c:v h264_videotoolbox -b:v {bitrate}k -g {_fps * 2} {_rtspUrl}";
+                
+                // Cross-platform encoder selection
+                string encoder;
+                if (Application.platform == RuntimePlatform.OSXEditor || Application.platform == RuntimePlatform.OSXPlayer)
+                {
+                    encoder = "h264_videotoolbox"; // macOS optimized
+                }
+                else
+                {
+                    encoder = "libx264"; // Linux, Windows, and other platforms
+                }
+                
+                var args = $"-f rawvideo -pix_fmt rgba -s {_width}x{_height} -r {_fps} -i - {vfChain} -f rtsp -rtsp_transport tcp -c:v {encoder} -b:v {bitrate}k -g {_fps * 2} {_rtspUrl}";
 
                 var psi = new ProcessStartInfo
                 {
