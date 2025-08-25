@@ -30,7 +30,16 @@ public class NamiBuoyant : MonoBehaviour
         GerstnerWavesJobs.GetData(guid, ref waterHeights, ref waterNormals);
         waterHeight = waterHeights[0].y;
         var pos = transform.position;
+
         offset = pos.y - waterHeight - waterOffset;
+
+        if (Application.platform == RuntimePlatform.LinuxPlayer
+        ||Application.platform == RuntimePlatform.LinuxEditor)
+        {
+            offset -= 1.0f;
+            // Debug.Log($"offset: {offset}");
+        }
+
         if (offset > 0) return;
         Vector3 force = new Vector3(0, offset * Physics.gravity.y, 0);
         rb.AddForce(force, ForceMode.Acceleration);
