@@ -36793,8 +36793,8 @@ MonoBehaviour:
   m_RendererIndex: -1
   m_VolumeLayerMask:
     serializedVersion: 2
-    m_Bits: 1
-  m_VolumeTrigger: {fileID: 0}
+    m_Bits: 4294967295
+  m_VolumeTrigger: {fileID: 1461065171}
   m_VolumeFrameworkUpdateModeOption: 2
   m_RenderPostProcessing: 1
   m_Antialiasing: 0
@@ -74085,7 +74085,7 @@ PrefabInstance:
     - target: {fileID: 3193471337630893609, guid: e70416e3bc35d4004a9981d0ac102ba5,
         type: 3}
       propertyPath: m_Splines.Array.data[0].m_Knots.Array.data[7].Rotation.value.y
-      value: -0.45847225
+      value: -0.45847228
       objectReference: {fileID: 0}
     - target: {fileID: 3193471337630893609, guid: e70416e3bc35d4004a9981d0ac102ba5,
         type: 3}

@@ -1,10 +1,8 @@
 using System;
-using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
-using Unity.Collections;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
@@ -38,6 +36,7 @@ namespace Nami
         public List<StreamConfig> streams = new List<StreamConfig>();
 
         private readonly List<RenderTexture> _renderTextures = new List<RenderTexture>();
+        private readonly List<RenderTexture> _resolveLdrTextures = new List<RenderTexture>();
         private readonly List<FfmpegPusher> _pushers = new List<FfmpegPusher>();
         private readonly List<float> _nextCaptureTime = new List<float>();
 
@@ -55,6 +54,7 @@ namespace Nami
         {
             TeardownStreams();
             _renderTextures.Clear();
+            _resolveLdrTextures.Clear();
             _pushers.Clear();
             _nextCaptureTime.Clear();
 
@@ -102,8 +102,11 @@ namespace Nami
 #endif
                     rt.Create();
                     sc.camera.targetTexture = rt;
-                    sc.camera.allowHDR = false;
+                    // Keep HDR enabled so URP post-processing (tone mapping, color grading)
+                    // runs and writes the final result into the LDR sRGB target.
+                    sc.camera.allowHDR = true;
                     sc.camera.allowMSAA = false;
+                    _resolveLdrTextures.Add(null);
                 }
                 else
                 {
@@ -122,6 +125,38 @@ namespace Nami
                     // Do not disable HDR; enable it so post-processing can render
                     sc.camera.allowHDR = true;
                     sc.camera.allowMSAA = false;
+
+                    // Create an LDR sRGB resolve target so we can apply gamma before encode
+#if UNITY_2019_1_OR_NEWER
+                    var ldrDesc = new RenderTextureDescriptor(width, height)
+                    {
+                        colorFormat = RenderTextureFormat.ARGB32,
+                        depthBufferBits = 0,
+                        msaaSamples = 1,
+                        sRGB = true
+                    };
+                    var resolve = new RenderTexture(ldrDesc)
+                    {
+                        useMipMap = false,
+                        antiAliasing = 1,
+                        autoGenerateMips = false,
+                        enableRandomWrite = false,
+                        wrapMode = TextureWrapMode.Clamp,
+                        filterMode = FilterMode.Bilinear
+                    };
+#else
+                    var resolve = new RenderTexture(width, height, 0, RenderTextureFormat.ARGB32)
+                    {
+                        useMipMap = false,
+                        antiAliasing = 1,
+                        autoGenerateMips = false,
+                        enableRandomWrite = false,
+                        wrapMode = TextureWrapMode.Clamp,
+                        filterMode = FilterMode.Bilinear
+                    };
+#endif
+                    resolve.Create();
+                    _resolveLdrTextures.Add(resolve);
                 }
 
                 var urp = sc.camera.GetUniversalAdditionalCameraData();
@@ -162,6 +197,13 @@ namespace Nami
             }
             _renderTextures.Clear();
 
+            foreach (var rt in _resolveLdrTextures)
+            {
+                if (rt == null) continue;
+                try { rt.Release(); } catch { /* ignore */ }
+            }
+            _resolveLdrTextures.Clear();
+
             foreach (var sc in streams)
             {
                 if (sc.camera != null)
@@ -189,7 +231,16 @@ namespace Nami
 
                 if (pusher == null || !pusher.IsRunning) continue;
 
-                AsyncGPUReadback.Request(rt, 0, TextureFormat.RGBA32, request =>
+                // If HDR target is used, resolve to LDR sRGB before readback to apply gamma
+                RenderTexture src = rt;
+                var resolve = _resolveLdrTextures.Count > i ? _resolveLdrTextures[i] : null;
+                if (resolve != null)
+                {
+                    Graphics.Blit(rt, resolve);
+                    src = resolve;
+                }
+
+                AsyncGPUReadback.Request(src, 0, TextureFormat.RGBA32, request =>
                 {
                     if (request.hasError) return;
                     var data = request.GetData<byte>();
@@ -238,21 +289,22 @@ namespace Nami
                 var bitrate = _bitrateKbps <= 0 ? 4000 : _bitrateKbps;
                 var maxrate = bitrate; // kbps
                 var bufsize = bitrate * 2; // kb
-                // Minimal, robust filter chain: vertical flip (optional) and SDR yuv420p conversion
-                // Using yuv420p improves player compatibility over nv12 and avoids level mismatches in some players
+                // Minimal, robust filter chain: optional vertical flip + yuv420p conversion
+                // Rely on encoder color metadata; some players mishandle manual range remapping (causing washout)
                 var vfChain = _flipVertical ? "-vf vflip,format=yuv420p" : "-vf format=yuv420p";
-                
+
                 // Cross-platform encoder selection
                 string encoder;
                 if (Application.platform == RuntimePlatform.OSXEditor || Application.platform == RuntimePlatform.OSXPlayer)
                 {
                     encoder = "h264_videotoolbox"; // macOS optimized
+                    encoder = "libx264";
                 }
                 else
                 {
                     encoder = "libx264"; // Linux, Windows, and other platforms
                 }
-                
+
                 // Color metadata/levels for better consistency in players (bt709). Range selectable per stream.
                 string colorFlags;
                 bool fullRange = _fullRange;
@@ -385,27 +437,51 @@ namespace Nami
 
         private static string ResolveFfmpegPath(string configured)
         {
+            // If user set an absolute path, use it only if it exists
             if (!string.IsNullOrEmpty(configured) && configured != "ffmpeg")
-                return configured;
+            {
+                try { if (System.IO.File.Exists(configured)) return configured; } catch { }
+            }
 
-            // Common macOS locations when launched outside a login shell
+            // Try to resolve via `which ffmpeg` (helps when PATH is available)
+            try
+            {
+                var psi = new ProcessStartInfo
+                {
+                    FileName = "/usr/bin/which",
+                    Arguments = "ffmpeg",
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    CreateNoWindow = true
+                };
+                using (var proc = new Process { StartInfo = psi })
+                {
+                    proc.Start();
+                    var path = proc.StandardOutput.ReadLine();
+                    proc.WaitForExit(500);
+                    if (!string.IsNullOrEmpty(path))
+                    {
+                        try { if (System.IO.File.Exists(path)) return path; } catch { }
+                    }
+                }
+            }
+            catch { }
+
+            // Common macOS locations when Unity is launched outside a login shell (PATH not inherited)
             string[] candidates =
             {
-                configured,
-                "/opt/homebrew/bin/ffmpeg",
-                "/usr/local/bin/ffmpeg",
-                "/usr/bin/ffmpeg"
+                "/opt/homebrew/bin/ffmpeg",    // Homebrew (Apple Silicon)
+                "/usr/local/bin/ffmpeg",       // Homebrew (Intel) / manual
+                "/opt/local/bin/ffmpeg",       // MacPorts
+                "/usr/bin/ffmpeg"              // Rarely present on macOS
             };
             foreach (var c in candidates)
             {
-                if (string.IsNullOrEmpty(c)) continue;
-                try
-                {
-                    if (System.IO.File.Exists(c)) return c;
-                }
-                catch { }
+                try { if (System.IO.File.Exists(c)) return c; } catch { }
             }
-            return configured; // fallback; user should set absolute path in Inspector
+
+            // Last resort: return original token ("ffmpeg" or user input) so error message shows it
+            return string.IsNullOrEmpty(configured) ? "ffmpeg" : configured;
         }
     }
 }
