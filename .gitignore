@@ -51,3 +51,4 @@ Assets/ActualImages*
 Packages/packages-lock.json
 .DS_Store\nLibrary/\nTemp/\nLogs/\nObj/\nBuild/\nBuilds/\nUserSettings/\nMemoryCaptures/\n*.unitypackage
 .DS_Store\nLibrary/\nTemp/\nLogs/\nObj/\nBuild/\nBuilds/\nUserSettings/\nMemoryCaptures/\n*.unitypackage
+Assets/_Recovery/

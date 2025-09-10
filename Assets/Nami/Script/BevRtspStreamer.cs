@@ -192,8 +192,9 @@ namespace Nami
                 if (_running) return;
 
                 var bitrate = _bitrateKbps <= 0 ? 4000 : _bitrateKbps;
-                // Minimal, robust filter chain: vertical flip (optional) and NV12 conversion
-                var vfChain = _flipVertical ? "-vf vflip,format=nv12" : "-vf format=nv12";
+                // Minimal, robust filter chain: vertical flip (optional) and SDR yuv420p conversion
+                // Using yuv420p improves player compatibility over nv12 and avoids level mismatches in some players
+                var vfChain = _flipVertical ? "-vf vflip,format=yuv420p" : "-vf format=yuv420p";
                 
                 // Cross-platform encoder selection
                 string encoder;
@@ -206,7 +207,19 @@ namespace Nami
                     encoder = "libx264"; // Linux, Windows, and other platforms
                 }
                 
-                var args = $"-f rawvideo -pix_fmt rgba -s {_width}x{_height} -r {_fps} -i - {vfChain} -f rtsp -rtsp_transport tcp -c:v {encoder} -b:v {bitrate}k -g {_fps * 2} {_rtspUrl}";
+                // Color metadata/levels for better consistency in players (bt709 + full range)
+                string colorFlags;
+                if (encoder == "libx264")
+                {
+                    colorFlags = "-color_range pc -colorspace bt709 -color_trc bt709 -color_primaries bt709 -x264-params colorprimaries=bt709:transfer=bt709:colormatrix=bt709:fullrange=on";
+                }
+                else
+                {
+                    // videotoolbox doesn't accept -x264-params; still provide color metadata and ensure yuv420p
+                    colorFlags = "-color_range pc -colorspace bt709 -color_trc bt709 -color_primaries bt709 -pix_fmt yuv420p";
+                }
+
+                var args = $"-f rawvideo -pix_fmt rgba -s {_width}x{_height} -r {_fps} -i - {vfChain} {colorFlags} -f rtsp -rtsp_transport tcp -c:v {encoder} -b:v {bitrate}k -g {_fps * 2} {_rtspUrl}";
 
                 var psi = new ProcessStartInfo
                 {
@@ -293,6 +306,28 @@ namespace Nami
                 {
                     _proc?.Dispose();
                 }
+            }
+        }
+
+        // Switch which Unity Camera is streamed for a given stream name at runtime.
+        // This will rebuild the render textures and restart the ffmpeg pushers.
+        public void SetStreamCamera(string streamName, Camera newCamera)
+        {
+            if (string.IsNullOrEmpty(streamName)) return;
+            bool changed = false;
+            for (int i = 0; i < streams.Count; i++)
+            {
+                var sc = streams[i];
+                if (sc != null && sc.streamName == streamName)
+                {
+                    sc.camera = newCamera;
+                    changed = true;
+                    break;
+                }
+            }
+            if (changed)
+            {
+                InitializeStreams();
             }
         }
 
