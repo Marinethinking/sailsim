@@ -27,8 +27,6 @@ namespace Nami
             public int fps = 15;
             public int bitrateKbps = 4000;
             public bool flipVertical = true; // raw GPU readback is typically bottom-up
-            public bool forceLdrSrgb = false; // render to LDR sRGB target to match player gamma
-            public bool useFullRange = false; // false => TV (limited) range; true => PC (full) range
         }
 
         public string rtspBaseUrl = "rtsp://127.0.0.1:8554/";
@@ -39,6 +37,8 @@ namespace Nami
         private readonly List<RenderTexture> _resolveLdrTextures = new List<RenderTexture>();
         private readonly List<FfmpegPusher> _pushers = new List<FfmpegPusher>();
         private readonly List<float> _nextCaptureTime = new List<float>();
+        private readonly List<bool> _readbackPending = new List<bool>();
+        private int _generation = 0;
 
         private void OnEnable()
         {
@@ -57,6 +57,8 @@ namespace Nami
             _resolveLdrTextures.Clear();
             _pushers.Clear();
             _nextCaptureTime.Clear();
+            _readbackPending.Clear();
+            _generation++;
 
             // Resolve ffmpeg absolute path if needed
             ffmpegPath = ResolveFfmpegPath(ffmpegPath);
@@ -68,96 +70,52 @@ namespace Nami
                 var width = Mathf.Max(16, sc.width);
                 var height = Mathf.Max(16, sc.height);
 
-                RenderTexture rt;
-                if (sc.forceLdrSrgb)
+                // Always render to HDR target so URP post-processing is correct
+                RenderTexture rt = new RenderTexture(width, height, 24, RenderTextureFormat.DefaultHDR)
                 {
-                    // Create an LDR sRGB render target to avoid linear->gamma mismatch in external players
-#if UNITY_2019_1_OR_NEWER
-                    var desc = new RenderTextureDescriptor(width, height)
-                    {
-                        colorFormat = RenderTextureFormat.ARGB32,
-                        depthBufferBits = 24,
-                        msaaSamples = 1,
-                        sRGB = true
-                    };
-                    rt = new RenderTexture(desc)
-                    {
-                        useMipMap = false,
-                        antiAliasing = 1,
-                        autoGenerateMips = false,
-                        enableRandomWrite = false,
-                        wrapMode = TextureWrapMode.Clamp,
-                        filterMode = FilterMode.Bilinear
-                    };
-#else
-                    rt = new RenderTexture(width, height, 24, RenderTextureFormat.ARGB32)
-                    {
-                        useMipMap = false,
-                        antiAliasing = 1,
-                        autoGenerateMips = false,
-                        enableRandomWrite = false,
-                        wrapMode = TextureWrapMode.Clamp,
-                        filterMode = FilterMode.Bilinear
-                    };
-#endif
-                    rt.Create();
-                    sc.camera.targetTexture = rt;
-                    // Keep HDR enabled so URP post-processing (tone mapping, color grading)
-                    // runs and writes the final result into the LDR sRGB target.
-                    sc.camera.allowHDR = true;
-                    sc.camera.allowMSAA = false;
-                    _resolveLdrTextures.Add(null);
-                }
-                else
-                {
-                    // Use HDR RT so URP post-processing (e.g. Bloom) is applied correctly
-                    rt = new RenderTexture(width, height, 24, RenderTextureFormat.DefaultHDR)
-                    {
-                        useMipMap = false,
-                        antiAliasing = 1,
-                        autoGenerateMips = false,
-                        enableRandomWrite = false,
-                        wrapMode = TextureWrapMode.Clamp,
-                        filterMode = FilterMode.Bilinear
-                    };
-                    rt.Create();
-                    sc.camera.targetTexture = rt;
-                    // Do not disable HDR; enable it so post-processing can render
-                    sc.camera.allowHDR = true;
-                    sc.camera.allowMSAA = false;
+                    useMipMap = false,
+                    antiAliasing = 1,
+                    autoGenerateMips = false,
+                    enableRandomWrite = false,
+                    wrapMode = TextureWrapMode.Clamp,
+                    filterMode = FilterMode.Bilinear
+                };
+                rt.Create();
+                sc.camera.targetTexture = rt;
+                sc.camera.allowHDR = true;
+                sc.camera.allowMSAA = false;
 
-                    // Create an LDR sRGB resolve target so we can apply gamma before encode
+                // Create an LDR sRGB resolve target so we can apply gamma before encode
 #if UNITY_2019_1_OR_NEWER
-                    var ldrDesc = new RenderTextureDescriptor(width, height)
-                    {
-                        colorFormat = RenderTextureFormat.ARGB32,
-                        depthBufferBits = 0,
-                        msaaSamples = 1,
-                        sRGB = true
-                    };
-                    var resolve = new RenderTexture(ldrDesc)
-                    {
-                        useMipMap = false,
-                        antiAliasing = 1,
-                        autoGenerateMips = false,
-                        enableRandomWrite = false,
-                        wrapMode = TextureWrapMode.Clamp,
-                        filterMode = FilterMode.Bilinear
-                    };
+                var ldrDesc = new RenderTextureDescriptor(width, height)
+                {
+                    colorFormat = RenderTextureFormat.ARGB32,
+                    depthBufferBits = 0,
+                    msaaSamples = 1,
+                    sRGB = true
+                };
+                var resolve = new RenderTexture(ldrDesc)
+                {
+                    useMipMap = false,
+                    antiAliasing = 1,
+                    autoGenerateMips = false,
+                    enableRandomWrite = false,
+                    wrapMode = TextureWrapMode.Clamp,
+                    filterMode = FilterMode.Bilinear
+                };
 #else
-                    var resolve = new RenderTexture(width, height, 0, RenderTextureFormat.ARGB32)
-                    {
-                        useMipMap = false,
-                        antiAliasing = 1,
-                        autoGenerateMips = false,
-                        enableRandomWrite = false,
-                        wrapMode = TextureWrapMode.Clamp,
-                        filterMode = FilterMode.Bilinear
-                    };
+                var resolve = new RenderTexture(width, height, 0, RenderTextureFormat.ARGB32)
+                {
+                    useMipMap = false,
+                    antiAliasing = 1,
+                    autoGenerateMips = false,
+                    enableRandomWrite = false,
+                    wrapMode = TextureWrapMode.Clamp,
+                    filterMode = FilterMode.Bilinear
+                };
 #endif
-                    resolve.Create();
-                    _resolveLdrTextures.Add(resolve);
-                }
+                resolve.Create();
+                _resolveLdrTextures.Add(resolve);
 
                 var urp = sc.camera.GetUniversalAdditionalCameraData();
                 if (urp != null)
@@ -173,12 +131,13 @@ namespace Nami
                 }
 
                 var url = rtspBaseUrl.TrimEnd('/') + "/" + sc.streamName;
-                var pusher = new FfmpegPusher(ffmpegPath, width, height, sc.fps, sc.bitrateKbps, url, sc.flipVertical, sc.useFullRange);
+                var pusher = new FfmpegPusher(ffmpegPath, width, height, sc.fps, sc.bitrateKbps, url, sc.flipVertical);
                 pusher.Start();
 
                 _renderTextures.Add(rt);
                 _pushers.Add(pusher);
                 _nextCaptureTime.Add(Time.time);
+                _readbackPending.Add(false);
             }
         }
 
@@ -240,13 +199,25 @@ namespace Nami
                     src = resolve;
                 }
 
+                if (_readbackPending[i]) continue; // avoid piling up GPU readbacks
+                _readbackPending[i] = true;
+
+                var cbIndex = i;            // capture stable index
+                var cbGeneration = _generation; // capture generation to discard stale callbacks
+
                 AsyncGPUReadback.Request(src, 0, TextureFormat.RGBA32, request =>
                 {
+                    if (cbGeneration != _generation) return; // streams reinitialized; drop
+                    if (cbIndex < 0 || cbIndex >= _readbackPending.Count) return;
+                    _readbackPending[cbIndex] = false;
                     if (request.hasError) return;
+                    if (cbIndex < 0 || cbIndex >= _pushers.Count) return;
+                    var p = _pushers[cbIndex];
+                    if (p == null || !p.IsRunning) return;
                     var data = request.GetData<byte>();
                     var bytes = new byte[data.Length];
                     data.CopyTo(bytes);
-                    pusher.EnqueueFrame(bytes);
+                    p.EnqueueFrame(bytes);
                 });
             }
         }
@@ -262,15 +233,15 @@ namespace Nami
 
             private Process _proc;
             private Thread _writerThread;
-            private readonly BlockingCollection<byte[]> _queue = new BlockingCollection<byte[]>(new ConcurrentQueue<byte[]>());
+            private const int MaxQueuedFrames = 3; // bound latency and memory
+            private readonly BlockingCollection<byte[]> _queue = new BlockingCollection<byte[]>(new ConcurrentQueue<byte[]>(), MaxQueuedFrames);
             private volatile bool _running;
 
             public bool IsRunning => _running && _proc != null && !_proc.HasExited;
 
             private readonly bool _flipVertical;
-            private readonly bool _fullRange;
 
-            public FfmpegPusher(string ffmpegPath, int width, int height, int fps, int bitrateKbps, string rtspUrl, bool flipVertical, bool fullRange)
+            public FfmpegPusher(string ffmpegPath, int width, int height, int fps, int bitrateKbps, string rtspUrl, bool flipVertical)
             {
                 _ffmpegPath = ffmpegPath;
                 _width = width;
@@ -279,7 +250,6 @@ namespace Nami
                 _bitrateKbps = bitrateKbps;
                 _rtspUrl = rtspUrl;
                 _flipVertical = flipVertical;
-                _fullRange = fullRange;
             }
 
             public void Start()
@@ -298,31 +268,20 @@ namespace Nami
                 if (Application.platform == RuntimePlatform.OSXEditor || Application.platform == RuntimePlatform.OSXPlayer)
                 {
                     encoder = "h264_videotoolbox"; // macOS optimized
-                    encoder = "libx264";
+                    // encoder = "libx264";
                 }
                 else
                 {
                     encoder = "libx264"; // Linux, Windows, and other platforms
                 }
 
-                // Color metadata/levels for better consistency in players (bt709). Range selectable per stream.
-                string colorFlags;
-                bool fullRange = _fullRange;
-                if (encoder == "libx264")
-                {
-                    colorFlags = fullRange
-                        ? "-color_range pc -colorspace bt709 -color_trc bt709 -color_primaries bt709 -x264-params colorprimaries=bt709:transfer=bt709:colormatrix=bt709:fullrange=on"
-                        : "-color_range tv -colorspace bt709 -color_trc bt709 -color_primaries bt709 -x264-params colorprimaries=bt709:transfer=bt709:colormatrix=bt709";
-                }
-                else
-                {
-                    // videotoolbox doesn't accept -x264-params; still provide color metadata and ensure yuv420p
-                    colorFlags = fullRange
-                        ? "-color_range pc -colorspace bt709 -color_trc bt709 -color_primaries bt709 -pix_fmt yuv420p"
-                        : "-color_range tv -colorspace bt709 -color_trc bt709 -color_primaries bt709 -pix_fmt yuv420p";
-                }
+                // Color metadata/levels for better consistency in players (bt709). Default to TV/limited.
+                string colorFlags = encoder == "libx264"
+                    ? "-color_range tv -colorspace bt709 -color_trc bt709 -color_primaries bt709 -x264-params colorprimaries=bt709:transfer=bt709:colormatrix=bt709"
+                    : "-color_range tv -colorspace bt709 -color_trc bt709 -color_primaries bt709 -pix_fmt yuv420p";
 
-                var args = $"-f rawvideo -pix_fmt rgba -s {_width}x{_height} -r {_fps} -i - {vfChain} {colorFlags} -f rtsp -rtsp_transport tcp -c:v {encoder} -b:v {bitrate}k -maxrate {maxrate}k -bufsize {bufsize}k -g {_fps * 2} {_rtspUrl}";
+                var lowLatency = encoder == "libx264" ? "-preset veryfast -tune zerolatency" : string.Empty;
+                var args = $"-f rawvideo -pix_fmt rgba -s {_width}x{_height} -r {_fps} -i - {vfChain} {colorFlags} -f rtsp -rtsp_transport tcp -c:v {encoder} {lowLatency} -b:v {bitrate}k -maxrate {maxrate}k -bufsize {bufsize}k -g {_fps * 2} {_rtspUrl}";
 
                 var psi = new ProcessStartInfo
                 {
@@ -337,9 +296,10 @@ namespace Nami
 
                 _proc = new Process { StartInfo = psi, EnableRaisingEvents = true };
                 _proc.ErrorDataReceived += (s, e) => { if (!string.IsNullOrEmpty(e.Data)) UnityEngine.Debug.Log($"ffmpeg[{_rtspUrl}]: {e.Data}"); };
+                _proc.Exited += (s, e) => { _running = false; try { _queue.CompleteAdding(); } catch { } };
                 try
                 {
-                    UnityEngine.Debug.Log($"Starting RTSP stream: url={_rtspUrl} res={_width}x{_height} fps={_fps} bitrate={bitrate}k range={(fullRange ? "full" : "limited")} encoder={encoder}");
+                    UnityEngine.Debug.Log($"Starting RTSP stream: url={_rtspUrl} res={_width}x{_height} fps={_fps} bitrate={bitrate}k encoder={encoder}");
                     _proc.Start();
                 }
                 catch (Exception ex)
@@ -358,9 +318,11 @@ namespace Nami
             public void EnqueueFrame(byte[] rgba)
             {
                 if (!_running) return;
-                if (!_queue.IsAddingCompleted)
+                if (_queue.IsAddingCompleted) return;
+                // Drop oldest if queue is full to keep latency bounded
+                while (!_queue.TryAdd(rgba))
                 {
-                    _queue.Add(rgba);
+                    _queue.TryTake(out _);
                 }
             }
 
