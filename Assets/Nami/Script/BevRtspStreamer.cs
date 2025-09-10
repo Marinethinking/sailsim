@@ -29,6 +29,8 @@ namespace Nami
             public int fps = 15;
             public int bitrateKbps = 4000;
             public bool flipVertical = true; // raw GPU readback is typically bottom-up
+            public bool forceLdrSrgb = false; // render to LDR sRGB target to match player gamma
+            public bool useFullRange = false; // false => TV (limited) range; true => PC (full) range
         }
 
         public string rtspBaseUrl = "rtsp://127.0.0.1:8554/";
@@ -66,21 +68,61 @@ namespace Nami
                 var width = Mathf.Max(16, sc.width);
                 var height = Mathf.Max(16, sc.height);
 
-                // Use HDR RT so URP post-processing (e.g. Bloom) is applied correctly
-                var rt = new RenderTexture(width, height, 24, RenderTextureFormat.DefaultHDR)
+                RenderTexture rt;
+                if (sc.forceLdrSrgb)
                 {
-                    useMipMap = false,
-                    antiAliasing = 1,
-                    autoGenerateMips = false,
-                    enableRandomWrite = false,
-                    wrapMode = TextureWrapMode.Clamp,
-                    filterMode = FilterMode.Bilinear
-                };
-                rt.Create();
-                sc.camera.targetTexture = rt;
-                // Do not disable HDR; enable it so post-processing can render
-                sc.camera.allowHDR = true;
-                sc.camera.allowMSAA = false;
+                    // Create an LDR sRGB render target to avoid linear->gamma mismatch in external players
+#if UNITY_2019_1_OR_NEWER
+                    var desc = new RenderTextureDescriptor(width, height)
+                    {
+                        colorFormat = RenderTextureFormat.ARGB32,
+                        depthBufferBits = 24,
+                        msaaSamples = 1,
+                        sRGB = true
+                    };
+                    rt = new RenderTexture(desc)
+                    {
+                        useMipMap = false,
+                        antiAliasing = 1,
+                        autoGenerateMips = false,
+                        enableRandomWrite = false,
+                        wrapMode = TextureWrapMode.Clamp,
+                        filterMode = FilterMode.Bilinear
+                    };
+#else
+                    rt = new RenderTexture(width, height, 24, RenderTextureFormat.ARGB32)
+                    {
+                        useMipMap = false,
+                        antiAliasing = 1,
+                        autoGenerateMips = false,
+                        enableRandomWrite = false,
+                        wrapMode = TextureWrapMode.Clamp,
+                        filterMode = FilterMode.Bilinear
+                    };
+#endif
+                    rt.Create();
+                    sc.camera.targetTexture = rt;
+                    sc.camera.allowHDR = false;
+                    sc.camera.allowMSAA = false;
+                }
+                else
+                {
+                    // Use HDR RT so URP post-processing (e.g. Bloom) is applied correctly
+                    rt = new RenderTexture(width, height, 24, RenderTextureFormat.DefaultHDR)
+                    {
+                        useMipMap = false,
+                        antiAliasing = 1,
+                        autoGenerateMips = false,
+                        enableRandomWrite = false,
+                        wrapMode = TextureWrapMode.Clamp,
+                        filterMode = FilterMode.Bilinear
+                    };
+                    rt.Create();
+                    sc.camera.targetTexture = rt;
+                    // Do not disable HDR; enable it so post-processing can render
+                    sc.camera.allowHDR = true;
+                    sc.camera.allowMSAA = false;
+                }
 
                 var urp = sc.camera.GetUniversalAdditionalCameraData();
                 if (urp != null)
@@ -96,7 +138,7 @@ namespace Nami
                 }
 
                 var url = rtspBaseUrl.TrimEnd('/') + "/" + sc.streamName;
-                var pusher = new FfmpegPusher(ffmpegPath, width, height, sc.fps, sc.bitrateKbps, url, sc.flipVertical);
+                var pusher = new FfmpegPusher(ffmpegPath, width, height, sc.fps, sc.bitrateKbps, url, sc.flipVertical, sc.useFullRange);
                 pusher.Start();
 
                 _renderTextures.Add(rt);
@@ -175,8 +217,9 @@ namespace Nami
             public bool IsRunning => _running && _proc != null && !_proc.HasExited;
 
             private readonly bool _flipVertical;
+            private readonly bool _fullRange;
 
-            public FfmpegPusher(string ffmpegPath, int width, int height, int fps, int bitrateKbps, string rtspUrl, bool flipVertical)
+            public FfmpegPusher(string ffmpegPath, int width, int height, int fps, int bitrateKbps, string rtspUrl, bool flipVertical, bool fullRange)
             {
                 _ffmpegPath = ffmpegPath;
                 _width = width;
@@ -185,6 +228,7 @@ namespace Nami
                 _bitrateKbps = bitrateKbps;
                 _rtspUrl = rtspUrl;
                 _flipVertical = flipVertical;
+                _fullRange = fullRange;
             }
 
             public void Start()
@@ -192,6 +236,8 @@ namespace Nami
                 if (_running) return;
 
                 var bitrate = _bitrateKbps <= 0 ? 4000 : _bitrateKbps;
+                var maxrate = bitrate; // kbps
+                var bufsize = bitrate * 2; // kb
                 // Minimal, robust filter chain: vertical flip (optional) and SDR yuv420p conversion
                 // Using yuv420p improves player compatibility over nv12 and avoids level mismatches in some players
                 var vfChain = _flipVertical ? "-vf vflip,format=yuv420p" : "-vf format=yuv420p";
@@ -207,19 +253,24 @@ namespace Nami
                     encoder = "libx264"; // Linux, Windows, and other platforms
                 }
                 
-                // Color metadata/levels for better consistency in players (bt709 + full range)
+                // Color metadata/levels for better consistency in players (bt709). Range selectable per stream.
                 string colorFlags;
+                bool fullRange = _fullRange;
                 if (encoder == "libx264")
                 {
-                    colorFlags = "-color_range pc -colorspace bt709 -color_trc bt709 -color_primaries bt709 -x264-params colorprimaries=bt709:transfer=bt709:colormatrix=bt709:fullrange=on";
+                    colorFlags = fullRange
+                        ? "-color_range pc -colorspace bt709 -color_trc bt709 -color_primaries bt709 -x264-params colorprimaries=bt709:transfer=bt709:colormatrix=bt709:fullrange=on"
+                        : "-color_range tv -colorspace bt709 -color_trc bt709 -color_primaries bt709 -x264-params colorprimaries=bt709:transfer=bt709:colormatrix=bt709";
                 }
                 else
                 {
                     // videotoolbox doesn't accept -x264-params; still provide color metadata and ensure yuv420p
-                    colorFlags = "-color_range pc -colorspace bt709 -color_trc bt709 -color_primaries bt709 -pix_fmt yuv420p";
+                    colorFlags = fullRange
+                        ? "-color_range pc -colorspace bt709 -color_trc bt709 -color_primaries bt709 -pix_fmt yuv420p"
+                        : "-color_range tv -colorspace bt709 -color_trc bt709 -color_primaries bt709 -pix_fmt yuv420p";
                 }
 
-                var args = $"-f rawvideo -pix_fmt rgba -s {_width}x{_height} -r {_fps} -i - {vfChain} {colorFlags} -f rtsp -rtsp_transport tcp -c:v {encoder} -b:v {bitrate}k -g {_fps * 2} {_rtspUrl}";
+                var args = $"-f rawvideo -pix_fmt rgba -s {_width}x{_height} -r {_fps} -i - {vfChain} {colorFlags} -f rtsp -rtsp_transport tcp -c:v {encoder} -b:v {bitrate}k -maxrate {maxrate}k -bufsize {bufsize}k -g {_fps * 2} {_rtspUrl}";
 
                 var psi = new ProcessStartInfo
                 {
@@ -236,6 +287,7 @@ namespace Nami
                 _proc.ErrorDataReceived += (s, e) => { if (!string.IsNullOrEmpty(e.Data)) UnityEngine.Debug.Log($"ffmpeg[{_rtspUrl}]: {e.Data}"); };
                 try
                 {
+                    UnityEngine.Debug.Log($"Starting RTSP stream: url={_rtspUrl} res={_width}x{_height} fps={_fps} bitrate={bitrate}k range={(fullRange ? "full" : "limited")} encoder={encoder}");
                     _proc.Start();
                 }
                 catch (Exception ex)

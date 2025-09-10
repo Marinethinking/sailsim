@@ -40,6 +40,13 @@ namespace WaterSystem
         [SerializeField]
         private WaterResources resources;
 
+        // Simple, runtime-tweakable controls to bias perceived water brightness/contrast
+        [Header("Runtime Color Controls")]
+        [Range(0.25f, 4f)] public float absorptionGain = 1f;
+        [Range(0.25f, 4f)] public float scatteringGain = 1f;
+        [Range(0f, 4f)] public float foamGain = 1f;
+        [Range(0.5f, 2f)] public float rampGamma = 1f; // >1 brightens mid-tones, <1 darkens
+
         private static readonly int CameraRoll = Shader.PropertyToID("_CameraRoll");
         private static readonly int InvViewProjection = Shader.PropertyToID("_InvViewProjection");
         private static readonly int WaterDepthMap = Shader.PropertyToID("_WaterDepthMap");
@@ -319,30 +326,70 @@ namespace WaterSystem
             var cols = new Color[512];
             for (var i = 0; i < 128; i++)
             {
-                cols[i] = surfaceData._absorptionRamp.Evaluate(i / 128f);
+                var c = surfaceData._absorptionRamp.Evaluate(i / 128f);
+                cols[i] = ApplyGainGamma(c, absorptionGain, rampGamma);
             }
             for (var i = 0; i < 128; i++)
             {
-                cols[i + 128] = surfaceData._scatterRamp.Evaluate(i / 128f);
+                var c = surfaceData._scatterRamp.Evaluate(i / 128f);
+                cols[i + 128] = ApplyGainGamma(c, scatteringGain, rampGamma);
             }
             for (var i = 0; i < 128; i++)
             {
                 switch (surfaceData._foamSettings.foamType)
                 {
                     case 0: // default
-                        cols[i + 256] = defaultFoamRamp.GetPixelBilinear(i / 128f, 0.5f);
+                        cols[i + 256] = ApplyGainGamma(defaultFoamRamp.GetPixelBilinear(i / 128f, 0.5f), foamGain, rampGamma);
                         break;
                     case 1: // simple
-                        cols[i + 256] = defaultFoamRamp.GetPixelBilinear(surfaceData._foamSettings.basicFoam.Evaluate(i / 128f), 0.5f);
+                        cols[i + 256] = ApplyGainGamma(defaultFoamRamp.GetPixelBilinear(surfaceData._foamSettings.basicFoam.Evaluate(i / 128f), 0.5f), foamGain, rampGamma);
                         break;
                     case 2: // custom
-                        cols[i + 256] = Color.black;
+                        cols[i + 256] = ApplyGainGamma(Color.black, foamGain, rampGamma);
                         break;
                 }
             }
             _rampTexture.SetPixels(cols);
             _rampTexture.Apply();
             Shader.SetGlobalTexture(AbsorptionScatteringRamp, _rampTexture);
+        }
+
+        private static Color ApplyGainGamma(Color c, float gain, float gamma)
+        {
+            // Apply per-channel gain and gamma with clamping
+            float r = Mathf.Pow(Mathf.Clamp01(c.r * Mathf.Max(0f, gain)), 1f / Mathf.Max(0.0001f, gamma));
+            float g = Mathf.Pow(Mathf.Clamp01(c.g * Mathf.Max(0f, gain)), 1f / Mathf.Max(0.0001f, gamma));
+            float b = Mathf.Pow(Mathf.Clamp01(c.b * Mathf.Max(0f, gain)), 1f / Mathf.Max(0.0001f, gamma));
+            return new Color(r, g, b, c.a);
+        }
+
+        // Public runtime API: quickly tweak ramp gains and regenerate
+        public void SetWaterColorGains(float absorption, float scattering, float foam = 1f, float gamma = 1f)
+        {
+            absorptionGain = Mathf.Clamp(absorption, 0.25f, 4f);
+            scatteringGain = Mathf.Clamp(scattering, 0.25f, 4f);
+            foamGain = Mathf.Max(0f, foam);
+            rampGamma = Mathf.Clamp(gamma, 0.5f, 2f);
+            GenerateColorRamp();
+        }
+
+        // Public runtime API: switch reflection mode (e.g., force planar for higher realism)
+        public void SetReflectionType(ReflectionType type)
+        {
+            if (settingsData == null) return;
+            settingsData.refType = type;
+            if (_planarReflections == null)
+            {
+                if (!gameObject.TryGetComponent(out _planarReflections))
+                {
+                    _planarReflections = gameObject.AddComponent<PlanarReflections>();
+                    _planarReflections.hideFlags = HideFlags.HideAndDontSave | HideFlags.HideInInspector;
+                }
+            }
+            _planarReflections.m_settings = settingsData.planarSettings;
+            _planarReflections.enabled = settingsData.refType == ReflectionType.PlanarReflection;
+            // Update shader keywords immediately
+            SetWaves();
         }
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -21598,6 +21598,8 @@ MonoBehaviour:
     fps: 30
     bitrateKbps: 10000
     flipVertical: 1
+    forceLdrSrgb: 0
+    useFullRange: 0
 --- !u!1001 &1117231383
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -31595,15 +31597,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4950301651628742, guid: a8cf78d9746e449f69179132e78d867f, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 64.97
+      value: 63.29
       objectReference: {fileID: 0}
     - target: {fileID: 4950301651628742, guid: a8cf78d9746e449f69179132e78d867f, type: 3}
       propertyPath: m_LocalPosition.y
-      value: -0.64
+      value: 1.1
       objectReference: {fileID: 0}
     - target: {fileID: 4950301651628742, guid: a8cf78d9746e449f69179132e78d867f, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 132.4
+      value: 141.29
       objectReference: {fileID: 0}
     - target: {fileID: 4950301651628742, guid: a8cf78d9746e449f69179132e78d867f, type: 3}
       propertyPath: m_LocalRotation.w
@@ -38066,15 +38068,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4950301651628742, guid: a8cf78d9746e449f69179132e78d867f, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 73.24
+      value: 71.73
       objectReference: {fileID: 0}
     - target: {fileID: 4950301651628742, guid: a8cf78d9746e449f69179132e78d867f, type: 3}
       propertyPath: m_LocalPosition.y
-      value: -0.63
+      value: 1.24
       objectReference: {fileID: 0}
     - target: {fileID: 4950301651628742, guid: a8cf78d9746e449f69179132e78d867f, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 123.67
+      value: 124.86
       objectReference: {fileID: 0}
     - target: {fileID: 4950301651628742, guid: a8cf78d9746e449f69179132e78d867f, type: 3}
       propertyPath: m_LocalRotation.w
