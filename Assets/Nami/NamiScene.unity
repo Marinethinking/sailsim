@@ -5946,7 +5946,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &668146045
 Transform:
   m_ObjectHideFlags: 0
@@ -6227,7 +6227,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &751538175
 Transform:
   m_ObjectHideFlags: 0
@@ -6289,7 +6289,7 @@ MonoBehaviour:
     m_Bits: 1
   m_VolumeTrigger: {fileID: 0}
   m_VolumeFrameworkUpdateModeOption: 2
-  m_RenderPostProcessing: 0
+  m_RenderPostProcessing: 1
   m_Antialiasing: 0
   m_AntialiasingQuality: 2
   m_StopNaN: 0
@@ -21342,7 +21342,7 @@ PrefabInstance:
     - target: {fileID: 3596391855334024965, guid: 78009cb4c460e41b38682ae4c8daf831,
         type: 3}
       propertyPath: offset
-      value: -2.653227
+      value: -1
       objectReference: {fileID: 0}
     - target: {fileID: 3596391855334024965, guid: 78009cb4c460e41b38682ae4c8daf831,
         type: 3}
@@ -21352,7 +21352,7 @@ PrefabInstance:
     - target: {fileID: 3596391855334024965, guid: 78009cb4c460e41b38682ae4c8daf831,
         type: 3}
       propertyPath: waterOffset
-      value: 0
+      value: 1.5
       objectReference: {fileID: 0}
     - target: {fileID: 5598360444790488938, guid: 78009cb4c460e41b38682ae4c8daf831,
         type: 3}
@@ -21598,8 +21598,28 @@ MonoBehaviour:
     fps: 30
     bitrateKbps: 10000
     flipVertical: 1
-    forceLdrSrgb: 0
-    useFullRange: 0
+  - streamName: back
+    camera: {fileID: 668146048}
+    width: 1280
+    height: 720
+    fps: 20
+    bitrateKbps: 4000
+    flipVertical: 1
+  - streamName: left
+    camera: {fileID: 1193591769}
+    width: 1280
+    height: 720
+    fps: 20
+    bitrateKbps: 4000
+    flipVertical: 1
+  - streamName: right
+    camera: {fileID: 751538178}
+    width: 1280
+    height: 720
+    fps: 20
+    bitrateKbps: 4000
+    flipVertical: 1
+  forceEncoder: 
 --- !u!1001 &1117231383
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -21681,7 +21701,7 @@ PrefabInstance:
     - target: {fileID: 3596391855334024965, guid: 78009cb4c460e41b38682ae4c8daf831,
         type: 3}
       propertyPath: offset
-      value: -2.653227
+      value: -1
       objectReference: {fileID: 0}
     - target: {fileID: 3596391855334024965, guid: 78009cb4c460e41b38682ae4c8daf831,
         type: 3}
@@ -21691,7 +21711,7 @@ PrefabInstance:
     - target: {fileID: 3596391855334024965, guid: 78009cb4c460e41b38682ae4c8daf831,
         type: 3}
       propertyPath: waterOffset
-      value: 0
+      value: 1.5
       objectReference: {fileID: 0}
     - target: {fileID: 5598360444790488938, guid: 78009cb4c460e41b38682ae4c8daf831,
         type: 3}
@@ -26584,7 +26604,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &1193591766
 Transform:
   m_ObjectHideFlags: 0
@@ -37018,7 +37038,7 @@ PrefabInstance:
     - target: {fileID: 3596391855334024965, guid: 78009cb4c460e41b38682ae4c8daf831,
         type: 3}
       propertyPath: offset
-      value: -2.653227
+      value: -1
       objectReference: {fileID: 0}
     - target: {fileID: 3596391855334024965, guid: 78009cb4c460e41b38682ae4c8daf831,
         type: 3}
@@ -37028,7 +37048,7 @@ PrefabInstance:
     - target: {fileID: 3596391855334024965, guid: 78009cb4c460e41b38682ae4c8daf831,
         type: 3}
       propertyPath: waterOffset
-      value: 0
+      value: 1.5
       objectReference: {fileID: 0}
     - target: {fileID: 5598360444790488938, guid: 78009cb4c460e41b38682ae4c8daf831,
         type: 3}
@@ -38220,7 +38240,7 @@ PrefabInstance:
     - target: {fileID: 3596391855334024965, guid: 78009cb4c460e41b38682ae4c8daf831,
         type: 3}
       propertyPath: offset
-      value: -2.653227
+      value: -1
       objectReference: {fileID: 0}
     - target: {fileID: 3596391855334024965, guid: 78009cb4c460e41b38682ae4c8daf831,
         type: 3}
@@ -38230,7 +38250,7 @@ PrefabInstance:
     - target: {fileID: 3596391855334024965, guid: 78009cb4c460e41b38682ae4c8daf831,
         type: 3}
       propertyPath: waterOffset
-      value: 0
+      value: 1.5
       objectReference: {fileID: 0}
     - target: {fileID: 5598360444790488938, guid: 78009cb4c460e41b38682ae4c8daf831,
         type: 3}
@@ -74085,7 +74105,7 @@ PrefabInstance:
     - target: {fileID: 3193471337630893609, guid: e70416e3bc35d4004a9981d0ac102ba5,
         type: 3}
       propertyPath: m_Splines.Array.data[0].m_Knots.Array.data[7].Rotation.value.y
-      value: -0.45847228
+      value: -0.45847225
       objectReference: {fileID: 0}
     - target: {fileID: 3193471337630893609, guid: e70416e3bc35d4004a9981d0ac102ba5,
         type: 3}
