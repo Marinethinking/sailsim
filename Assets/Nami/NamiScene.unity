@@ -21550,6 +21550,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1063790446}
   - component: {fileID: 1063790447}
+  - component: {fileID: 1063790448}
   m_Layer: 0
   m_Name: BevCameras
   m_TagString: Untagged
@@ -21583,7 +21584,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1063790445}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 28a285d58f8984ddf906db29b5de2d17, type: 3}
   m_Name: 
@@ -21620,6 +21621,30 @@ MonoBehaviour:
     bitrateKbps: 4000
     flipVertical: 1
   forceEncoder: 
+--- !u!114 &1063790448
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1063790445}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a751e29323cb748b983031dba1feed0b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Nami.WebRtcStreamer
+  baseUrl: http://192.168.20.108:9300
+  useWhip: 1
+  useJsonWhipServer: 1
+  acceptSelfSignedCertificates: 1
+  streams:
+  - streamName: front
+    camera: {fileID: 1461065173}
+    width: 1280
+    height: 720
+    fps: 20
+    bitrateKbps: 4000
+    flipVertical: 1
 --- !u!1001 &1117231383
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -74105,7 +74130,7 @@ PrefabInstance:
     - target: {fileID: 3193471337630893609, guid: e70416e3bc35d4004a9981d0ac102ba5,
         type: 3}
       propertyPath: m_Splines.Array.data[0].m_Knots.Array.data[7].Rotation.value.y
-      value: -0.45847225
+      value: -0.45847228
       objectReference: {fileID: 0}
     - target: {fileID: 3193471337630893609, guid: e70416e3bc35d4004a9981d0ac102ba5,
         type: 3}

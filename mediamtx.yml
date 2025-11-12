@@ -1,0 +1,73 @@
+# MediaMTX Configuration for Unity SailSim
+# This config allows:
+# - Unity to publish WebRTC streams via WHIP
+# - Rust app to subscribe via WHEP
+# - GStreamer to access via RTSP
+
+# Logging
+logLevel: info
+logDestinations: [stdout]
+logFile: mediamtx.log
+
+# Server settings
+rtspAddress: :8554 # RTSP server (for GStreamer rtspsrc)
+rtpAddress: :8000 # RTP (used by RTSP)
+rtcpAddress: :8001 # RTCP (used by RTSP)
+
+# WebRTC settings (global)
+webrtc: yes
+webrtcAddress: :8889 # WebRTC server (WHIP/WHEP)
+webrtcEncryption: no
+webrtcAllowOrigin: "*"
+
+# Timeout settings - keep connections alive longer
+readTimeout: 30s
+writeTimeout: 30s
+
+# Paths configuration
+paths:
+  # Front camera stream
+  front:
+    source: publisher # Accept publishing from any source (WHIP, RTSP, etc.)
+
+    # Playback settings (for RTSP and WHEP)
+    # RTSP will be available at: rtsp://localhost:8554/front
+    # WHEP will be available at: http://localhost:8889/front/whep
+
+    # RTSP settings
+    rtspTransport: tcp # Use TCP for reliability (or udp for lower latency)
+
+  # Back camera stream
+  back:
+    source: publisher
+    rtspTransport: tcp
+
+  # Left camera stream
+  left:
+    source: publisher
+    rtspTransport: tcp
+
+  # Right camera stream
+  right:
+    source: publisher
+    rtspTransport: tcp
+
+  # Radar PPI stream (if you add radar streaming later)
+  radar:
+    source: publisher
+    rtspTransport: tcp
+# Authentication (optional - disable for local development)
+# authMethods: [internal, http]
+# authHTTPAddress: :8887
+
+# Metrics (optional - for monitoring)
+# metrics: yes
+# metricsAddress: :9998
+
+# Playback settings (global) - removed invalid fields
+# For low latency, configure at the path level or use rtspTransport: udp
+# Recording (optional - if you want to record streams)
+# record: yes
+# recordPath: ./recordings
+# recordFormat: mp4
+
