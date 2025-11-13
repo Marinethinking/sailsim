@@ -46,7 +46,7 @@ namespace Nami
         [Tooltip("Initial reconnect delay (seconds)")]
         public float reconnectInitialDelaySec = 2f;
         [Tooltip("Maximum reconnect delay (seconds)")]
-        public float reconnectMaxDelaySec = 20f;
+        public float reconnectMaxDelaySec = 5f;
 
         public List<StreamConfig> streams = new List<StreamConfig>();
 
@@ -58,6 +58,18 @@ namespace Nami
         [Tooltip("Run Unity WebRTC Update() coroutine each frame (per docs). Optional on 3.x, safe to enable if in doubt.")]
         public bool runWebRtcUpdateLoop = true;
         private Coroutine _webrtcUpdateCoroutine;
+        [Header("Diagnostics")]
+        [Tooltip("Log outbound WebRTC payload stats periodically")]
+        public bool enableStatsLogging = true;
+        [Tooltip("Seconds between stats logs (use 10s for low-noise logging)")]
+        public float statsLogIntervalSeconds = 10f;
+        [Tooltip("Log a frame progress line every N frames (set 100 for low-noise)")]
+        public int frameLogInterval = 100;
+        [Header("Encoder")]
+        [Tooltip("Force an IDR/keyframe on an interval to help receivers that do not send RTCP PLI/NACK")]
+        public bool forcePeriodicKeyframe = false;
+        [Tooltip("Seconds between forced keyframes when enabled")]
+        public float keyframeIntervalSec = 2f;
 
         private void OnEnable()
         {
@@ -95,7 +107,7 @@ namespace Nami
                 var width = Mathf.Max(16, sc.width);
                 var height = Mathf.Max(16, sc.height);
 
-                // Always render to HDR target so URP post-processing is correct
+                // Render to HDR format so URP post-processing works correctly
                 RenderTexture rt = new RenderTexture(width, height, 24, RenderTextureFormat.DefaultHDR)
                 {
                     useMipMap = false,
@@ -109,14 +121,44 @@ namespace Nami
                 sc.camera.targetTexture = rt;
                 sc.camera.allowHDR = true;
                 sc.camera.allowMSAA = false;
+                // Let Unity handle camera rendering - don't force enabled state
                 // Set viewport rect to full render texture to avoid frustum errors
-                // When targetTexture is set, Unity adjusts the viewport, but we ensure it's correct
                 sc.camera.rect = new Rect(0, 0, 1, 1); // Full viewport (normalized coordinates)
 
-                // Create LDR resolve texture
+                // Log camera configuration for debugging
+                Debug.Log($"[WebRTC {sc.streamName}] Camera '{sc.camera.name}' configuration:");
+                Debug.Log($"  - Enabled: {sc.camera.enabled}");
+                Debug.Log($"  - CullingMask: {sc.camera.cullingMask} (layers: {LayerMaskToString(sc.camera.cullingMask)})");
+                Debug.Log($"  - ClearFlags: {sc.camera.clearFlags}");
+                Debug.Log($"  - BackgroundColor: {sc.camera.backgroundColor}");
+                Debug.Log($"  - Depth: {sc.camera.depth}");
+                Debug.Log($"  - RenderingPath: {sc.camera.renderingPath}");
+
+                // CRITICAL FIX: ClearFlags = Nothing causes black frames!
+                // When rendering to a RenderTexture, the camera MUST clear the buffer
+                if (sc.camera.clearFlags == CameraClearFlags.Nothing)
+                {
+                    Debug.LogWarning($"[WebRTC {sc.streamName}] Camera ClearFlags is 'Nothing' - this causes BLACK FRAMES!");
+                    Debug.LogWarning($"  Changing to 'SolidColor' so camera clears the RenderTexture before rendering...");
+                    sc.camera.clearFlags = CameraClearFlags.SolidColor;
+                    // Use a nice sky blue as default if background is black
+                    if (sc.camera.backgroundColor == Color.black)
+                    {
+                        sc.camera.backgroundColor = new Color(0.5f, 0.7f, 1.0f, 1.0f);
+                    }
+                }
+                else if (sc.camera.clearFlags == CameraClearFlags.Depth)
+                {
+                    Debug.LogWarning($"[WebRTC {sc.streamName}] Camera ClearFlags is 'Depth' - changing to 'SolidColor' for WebRTC");
+                    sc.camera.clearFlags = CameraClearFlags.SolidColor;
+                }
+
+                // Create LDR resolve texture for final output with proper tonemapping
+                // CRITICAL: Unity WebRTC requires B8G8R8A8_SRGB format specifically
                 var ldrDesc = new RenderTextureDescriptor(width, height, GraphicsFormat.B8G8R8A8_SRGB, 0)
                 {
-                    msaaSamples = 1
+                    msaaSamples = 1,
+                    sRGB = true
                 };
                 var resolve = new RenderTexture(ldrDesc)
                 {
@@ -134,16 +176,45 @@ namespace Nami
                 var urp = sc.camera.GetUniversalAdditionalCameraData();
                 if (urp != null)
                 {
+                    // CRITICAL: Overlay cameras don't render independently!
+                    // They only add content on top of a base camera
+                    if (urp.renderType == CameraRenderType.Overlay)
+                    {
+                        Debug.LogWarning($"[WebRTC {sc.streamName}] Camera '{sc.camera.name}' is set to OVERLAY mode!");
+                        Debug.LogWarning($"  Overlay cameras don't render to targetTexture independently.");
+                        Debug.LogWarning($"  Changing to BASE camera for WebRTC streaming...");
+                        urp.renderType = CameraRenderType.Base;
+                    }
+
+                    // Ensure this camera doesn't render to screen (only to targetTexture)
+                    // This prevents conflicts with your main camera
+                    urp.renderType = CameraRenderType.Base;
+
+                    Debug.Log($"[WebRTC {sc.streamName}] URP Camera Render Type: {urp.renderType}");
+                    Debug.Log($"[WebRTC {sc.streamName}]   Render Post Processing: {urp.renderPostProcessing}");
+                    Debug.Log($"[WebRTC {sc.streamName}]   Anti-aliasing: {urp.antialiasing}");
+
                     if (urp.renderPostProcessing)
                     {
+                        Debug.Log($"[WebRTC {sc.streamName}]   ✓ Post-processing ENABLED");
                         if (urp.volumeLayerMask == 0)
+                        {
                             urp.volumeLayerMask = ~0;
+                            Debug.Log($"[WebRTC {sc.streamName}]   Set volumeLayerMask to Everything");
+                        }
                         if (urp.volumeTrigger == null)
+                        {
                             urp.volumeTrigger = sc.camera.transform;
+                            Debug.Log($"[WebRTC {sc.streamName}]   Set volumeTrigger to camera transform");
+                        }
+                    }
+                    else
+                    {
+                        Debug.LogWarning($"[WebRTC {sc.streamName}]   ✗ Post-processing DISABLED - effects won't show in stream");
                     }
                 }
 
-                // Create WebRTC stream
+                // Create WebRTC stream with LDR resolve texture
                 var webrtcStream = new WebRtcStream(sc, resolve, baseUrl, useWhip, useJsonWhipServer, this);
                 StartCoroutine(webrtcStream.InitializeCoroutine());
                 _webrtcStreams.Add(webrtcStream);
@@ -184,6 +255,8 @@ namespace Nami
             }
         }
 
+        // Let Unity's render pipeline handle camera rendering automatically
+        // Use Update() like BevRtspStreamer - LateUpdate was causing post-processing issues
         private void Update()
         {
             for (int i = 0; i < streams.Count; i++)
@@ -202,17 +275,18 @@ namespace Nami
 
                 if (webrtcStream == null || !webrtcStream.IsReady) continue;
 
-                // Skip if readback is already pending
-                // Resolve HDR to LDR if needed
-                RenderTexture src = rt;
+                // Don't call camera.Render() - let Unity's rendering pipeline handle it
+                // Manual rendering bypasses URP's post-processing pipeline
+
+                // Blit from HDR to LDR with proper color space conversion
+                // Graphics.Blit applies tonemapping automatically
                 var resolve = _resolveLdrTextures.Count > i ? _resolveLdrTextures[i] : null;
                 if (resolve != null)
                 {
                     Graphics.Blit(rt, resolve);
-                    src = resolve;
                 }
 
-                webrtcStream.UpdateFrame(src);
+                webrtcStream.UpdateFrame(resolve ?? rt);
             }
         }
 
@@ -237,6 +311,15 @@ namespace Nami
             private Coroutine _connectCoroutine;
             private Coroutine _reconnectCoroutine;
             private float _currentBackoffSec = 0f;
+            private RTCRtpSender _sender;
+            private Coroutine _statsCoroutine;
+            private ulong _lastBytesSent = 0;
+            private float _lastStatsWallTime = 0f;
+            // WHIP resource management
+            private string _whipResourceUrl = null;
+            private string _whipResourceETag = null;
+            private Coroutine _keyframeCoroutine;
+            private static System.Reflection.MethodInfo _generateKeyFrameMethod;
 
             public bool IsReady => _isReady && _peerConnection != null &&
                 _peerConnection.ConnectionState == RTCPeerConnectionState.Connected && !_disposed;
@@ -284,12 +367,15 @@ namespace Nami
                     // Create VideoStreamTrack directly from the resolve texture (_sourceTexture)
                     _videoTrack = new VideoStreamTrack(_sourceTexture);
                     _videoTrack.Enabled = true;
-                    Debug.Log($"[WebRTC {_config.streamName}] Created VideoStreamTrack: {_videoTrack.Id}, Enabled: {_videoTrack.Enabled}, ReadyState: {_videoTrack.ReadyState}");
+                    Debug.Log($"[WebRTC {_config.streamName}] Created VideoStreamTrack from texture ({_sourceTexture.width}x{_sourceTexture.height})");
+                    Debug.Log($"[WebRTC {_config.streamName}]   Track ID: {_videoTrack.Id}, Enabled: {_videoTrack.Enabled}, ReadyState: {_videoTrack.ReadyState}");
+                    Debug.Log($"[WebRTC {_config.streamName}]   Texture Created: {_sourceTexture.IsCreated()}, Format: {_sourceTexture.graphicsFormat}");
 
                     // Create a MediaStream to ensure msid is included in SDP and attach the track
                     var mediaStream = new MediaStream();
                     mediaStream.AddTrack(_videoTrack);
                     var sender = _peerConnection.AddTrack(_videoTrack, mediaStream);
+                    _sender = sender;
                     Debug.Log($"[WebRTC {_config.streamName}] Added video track with MediaStream (msid) to peer connection");
 
                     // Ensure transceiver is SendOnly and prefer H.264
@@ -362,12 +448,204 @@ namespace Nami
 
                     // Create and send offer (start as coroutine to stay on main thread)
                     _owner.StartCoroutine(CreateOfferAndConnectCoroutine());
+                    // Start periodic stats logging for outbound payload
+                    if (_statsCoroutine == null && ((WebRtcStreamer)_owner).enableStatsLogging)
+                    {
+                        _statsCoroutine = _owner.StartCoroutine(OutboundStatsLogger());
+                    }
+                    // Optionally start periodic keyframe generator (if API is available)
+                    if (_keyframeCoroutine == null && ((WebRtcStreamer)_owner).forcePeriodicKeyframe)
+                    {
+                        _keyframeCoroutine = _owner.StartCoroutine(ForceKeyframeTicker());
+                    }
                 }
                 catch (Exception e)
                 {
                     Debug.LogError($"WebRTC [{_config.streamName}] initialization failed: {e.Message}");
                     _isReady = false;
                 }
+            }
+
+            private IEnumerator ForceKeyframeTicker()
+            {
+                // Uses RTCRtpSender.GenerateKeyFrame() if present in current Unity WebRTC package
+                float wait = Mathf.Max(0.5f, ((WebRtcStreamer)_owner).keyframeIntervalSec);
+                while (!_disposed)
+                {
+                    if (_peerConnection != null && _peerConnection.ConnectionState == RTCPeerConnectionState.Connected && _sender != null)
+                    {
+                        try
+                        {
+                            if (_generateKeyFrameMethod == null)
+                            {
+                                _generateKeyFrameMethod = typeof(RTCRtpSender).GetMethod("GenerateKeyFrame", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+                                if (_generateKeyFrameMethod == null)
+                                {
+                                    Debug.LogWarning($"[WebRTC {_config.streamName}] RTCRtpSender.GenerateKeyFrame() not available in this WebRTC package.");
+                                    yield break;
+                                }
+                            }
+                            _generateKeyFrameMethod.Invoke(_sender, null);
+                            Debug.Log($"[WebRTC {_config.streamName}] Forced keyframe request on sender");
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.LogWarning($"[WebRTC {_config.streamName}] Force keyframe failed: {ex.Message}");
+                        }
+                    }
+                    yield return new WaitForSeconds(wait);
+                }
+            }
+
+            private IEnumerator OutboundStatsLogger()
+            {
+                // Log bytes sent deltas every configured interval to detect freezes
+                _lastStatsWallTime = Time.realtimeSinceStartup;
+                var interval = Mathf.Max(1f, ((WebRtcStreamer)_owner).statsLogIntervalSeconds);
+                while (!_disposed)
+                {
+                    if (_peerConnection == null || _peerConnection.ConnectionState != RTCPeerConnectionState.Connected)
+                    {
+                        yield return new WaitForSeconds(interval);
+                        continue;
+                    }
+                    RTCStatsReportAsyncOperation op = null;
+                    try
+                    {
+                        op = _peerConnection.GetStats();
+                    }
+                    catch { }
+                    if (op == null)
+                    {
+                        yield return new WaitForSeconds(interval);
+                        continue;
+                    }
+                    float timeout = Time.time + 2f * interval;
+                    while (!op.IsDone && Time.time < timeout && !_disposed)
+                    {
+                        yield return null;
+                    }
+                    if (_disposed) yield break;
+                    if (!op.IsDone || op.IsError)
+                    {
+                        yield return new WaitForSeconds(interval);
+                        continue;
+                    }
+                    try
+                    {
+                        var report = op.Value; // RTCStatsReport
+                        ulong bytesSent = ExtractOutboundVideoBytes(report);
+                        var now = Time.realtimeSinceStartup;
+                        var deltaTime = Mathf.Max(0.001f, now - _lastStatsWallTime);
+                        if (_lastBytesSent > 0 && bytesSent >= _lastBytesSent)
+                        {
+                            ulong deltaBytes = bytesSent - _lastBytesSent;
+                            double kbps = (deltaBytes * 8.0) / 1000.0 / deltaTime;
+                            if (deltaBytes <= 64)
+                                Debug.LogWarning($"[WebRTC {_config.streamName}] Outbound payload in last {deltaTime:0.00}s: {deltaBytes} bytes (~{kbps:0} kbps)");
+                            else
+                                Debug.Log($"[WebRTC {_config.streamName}] Outbound payload in last {deltaTime:0.00}s: {deltaBytes} bytes (~{kbps:0} kbps)");
+                        }
+                        _lastBytesSent = bytesSent;
+                        _lastStatsWallTime = now;
+                    }
+                    catch (Exception e)
+                    {
+                        Debug.LogWarning($"[WebRTC {_config.streamName}] Stats parse error: {e.Message}");
+                    }
+                    yield return new WaitForSeconds(interval);
+                }
+            }
+
+            private static ulong ExtractOutboundVideoBytes(RTCStatsReport report)
+            {
+                try
+                {
+                    // Try to iterate report stats via reflection to support multiple package versions
+                    if (report == null) return 0;
+                    var statsProp = report.GetType().GetProperty("Stats");
+                    var dict = statsProp != null ? statsProp.GetValue(report) as System.Collections.IDictionary : null;
+                    if (dict == null)
+                    {
+                        // Some versions expose 'Stats' as IEnumerable<KeyValuePair<string, RTCStats>>
+                        var enumerable = statsProp?.GetValue(report) as System.Collections.IEnumerable;
+                        if (enumerable != null)
+                        {
+                            ulong bytes = 0;
+                            foreach (var entry in enumerable)
+                            {
+                                object stat = entry;
+                                var kvpType = entry.GetType();
+                                var valProp = kvpType.GetProperty("Value");
+                                if (valProp != null) stat = valProp.GetValue(entry);
+                                if (stat == null) continue;
+                                if (IsOutboundVideoStat(stat, out ulong b)) bytes += b;
+                            }
+                            return bytes;
+                        }
+                        return 0;
+                    }
+                    ulong total = 0;
+                    foreach (System.Collections.DictionaryEntry kv in dict)
+                    {
+                        var stat = kv.Value;
+                        if (stat == null) continue;
+                        if (IsOutboundVideoStat(stat, out ulong b)) total += b;
+                    }
+                    return total;
+                }
+                catch { return 0; }
+            }
+
+            private static bool IsOutboundVideoStat(object stat, out ulong bytesSent)
+            {
+                bytesSent = 0;
+                if (stat == null) return false;
+                var t = stat.GetType();
+                // type / kind / mediaType
+                string typeStr = TryGetString(stat, t.GetProperty("type")) ?? TryGetString(stat, t.GetProperty("Type"));
+                if (string.IsNullOrEmpty(typeStr))
+                {
+                    var typeProp = t.GetProperty("m_Type", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                    typeStr = TryGetString(stat, typeProp);
+                }
+                if (string.IsNullOrEmpty(typeStr) || !typeStr.ToLowerInvariant().Contains("outbound"))
+                    return false;
+                var kind = (TryGetString(stat, t.GetProperty("kind")) ?? TryGetString(stat, t.GetProperty("mediaType")) ?? "").ToLowerInvariant();
+                if (kind.Length > 0 && kind != "video") return false;
+                // bytesSent
+                var bytesObj = TryGetULong(stat, t.GetProperty("bytesSent"));
+                if (bytesObj.HasValue)
+                {
+                    bytesSent = bytesObj.Value;
+                    return true;
+                }
+                return false;
+            }
+
+            private static string TryGetString(object obj, System.Reflection.PropertyInfo prop)
+            {
+                try
+                {
+                    if (prop == null) return null;
+                    var v = prop.GetValue(obj);
+                    return v?.ToString();
+                }
+                catch { return null; }
+            }
+
+            private static ulong? TryGetULong(object obj, System.Reflection.PropertyInfo prop)
+            {
+                try
+                {
+                    if (prop == null) return null;
+                    var v = prop.GetValue(obj);
+                    if (v == null) return null;
+                    if (v is ulong u) return u;
+                    if (ulong.TryParse(v.ToString(), out var parsed)) return parsed;
+                    return null;
+                }
+                catch { return null; }
             }
 
             private IEnumerator CreateOfferAndConnectCoroutine()
@@ -478,6 +756,9 @@ namespace Nami
                         string body = request.downloadHandler.text ?? string.Empty;
                         string contentType = request.GetResponseHeader("Content-Type") ?? string.Empty;
                         string sdpAnswer = null;
+                        // Capture WHIP resource for cleanup
+                        _whipResourceUrl = request.GetResponseHeader("Location");
+                        _whipResourceETag = request.GetResponseHeader("ETag");
 
                         if (_useJsonWhip)
                         {
@@ -546,6 +827,10 @@ namespace Nami
                         Debug.Log($"[WebRTC {_config.streamName}] ✓ Connected to signaling server at {_endpointUrl}");
                         Debug.Log($"[WebRTC {_config.streamName}] Stream available at:");
                         Debug.Log($"[WebRTC {_config.streamName}]   - WHIP publish endpoint: {_endpointUrl}");
+                        if (!string.IsNullOrEmpty(_whipResourceUrl))
+                        {
+                            Debug.Log($"[WebRTC {_config.streamName}]   - WHIP resource: {_whipResourceUrl} (will DELETE on teardown)");
+                        }
                     }
                     else
                     {
@@ -557,6 +842,34 @@ namespace Nami
                 finally
                 {
                     request?.Dispose();
+                }
+            }
+
+            private IEnumerator DeleteWhipResource()
+            {
+                if (!_useWhip) yield break;
+                if (string.IsNullOrEmpty(_whipResourceUrl)) yield break;
+                UnityWebRequest del = null;
+                try
+                {
+                    del = UnityWebRequest.Delete(_whipResourceUrl);
+                    if (!string.IsNullOrEmpty(_whipResourceETag))
+                    {
+                        del.SetRequestHeader("If-Match", _whipResourceETag);
+                    }
+                    var op = del.SendWebRequest();
+                    float until = Time.time + 4f;
+                    while (!op.isDone && Time.time < until) { yield return null; }
+                    if (op.isDone && del.result == UnityWebRequest.Result.Success)
+                    {
+                        Debug.Log($"[WebRTC {_config.streamName}] Deleted WHIP resource {_whipResourceUrl}");
+                    }
+                }
+                finally
+                {
+                    try { del?.Dispose(); } catch { }
+                    _whipResourceUrl = null;
+                    _whipResourceETag = null;
                 }
             }
 
@@ -573,6 +886,8 @@ namespace Nami
                 if (_disposed) yield break;
 
                 _isReady = false;
+                // Attempt to cleanup WHIP resource before tearing down
+                yield return DeleteWhipResource();
                 if (_peerConnection != null)
                 {
                     try
@@ -619,12 +934,25 @@ namespace Nami
 
             public void UpdateFrame(RenderTexture source)
             {
-                // No-op: the VideoStreamTrack reads directly from _sourceTexture, which is already updated in Update()
-                if (_disposed || !_isReady || _videoTrack == null) return;
-                _frameCount++;
-                if (_frameCount % 90 == 0)
+                if (_disposed || !_isReady || _videoTrack == null || source == null) return;
+
+                // VideoStreamTrack should automatically read from _sourceTexture, but let's verify it's active
+                if (!_videoTrack.Enabled)
                 {
-                    Debug.Log($"[WebRTC {_config.streamName}] Frame {_frameCount} ({_sourceTexture.width}x{_sourceTexture.height}) | Track enabled: {_videoTrack?.Enabled} | Connection: {_peerConnection?.ConnectionState}");
+                    Debug.LogWarning($"[WebRTC {_config.streamName}] VideoStreamTrack is disabled! Enabling...");
+                    _videoTrack.Enabled = true;
+                }
+
+                _frameCount++;
+                var parent = (WebRtcStreamer)_owner;
+                int interval = Mathf.Max(1, parent.frameLogInterval <= 0 ? 100 : parent.frameLogInterval);
+                if (_frameCount % interval == 0)
+                {
+                    Debug.Log($"[WebRTC {_config.streamName}] Frame {_frameCount} ({source.width}x{source.height}) | " +
+                             $"Track enabled: {_videoTrack.Enabled} | " +
+                             $"Track ReadyState: {_videoTrack.ReadyState} | " +
+                             $"Connection: {_peerConnection.ConnectionState} | " +
+                             $"Texture valid: {source.IsCreated()}");
                 }
             }
 
@@ -634,6 +962,18 @@ namespace Nami
                 _isReady = false;
                 try
                 {
+                    // Cleanup WHIP resource if present
+                    try { _owner.StartCoroutine(DeleteWhipResource()); } catch { }
+                    if (_statsCoroutine != null)
+                    {
+                        try { _owner.StopCoroutine(_statsCoroutine); } catch { }
+                        _statsCoroutine = null;
+                    }
+                    if (_keyframeCoroutine != null)
+                    {
+                        try { _owner.StopCoroutine(_keyframeCoroutine); } catch { }
+                        _keyframeCoroutine = null;
+                    }
                     _videoTrack?.Dispose();
                     _videoTrack = null;
                     _peerConnection?.Close();
@@ -666,6 +1006,22 @@ namespace Nami
         }
 
         // Helpers
+        private static string LayerMaskToString(int mask)
+        {
+            if (mask == 0) return "Nothing";
+            if (mask == -1) return "Everything";
+            var layers = new System.Collections.Generic.List<string>();
+            for (int i = 0; i < 32; i++)
+            {
+                if ((mask & (1 << i)) != 0)
+                {
+                    var layerName = LayerMask.LayerToName(i);
+                    layers.Add(string.IsNullOrEmpty(layerName) ? $"Layer{i}" : layerName);
+                }
+            }
+            return layers.Count > 0 ? string.Join(", ", layers) : "None";
+        }
+
         private static bool LooksLikeSdp(string s)
         {
             if (string.IsNullOrEmpty(s)) return false;

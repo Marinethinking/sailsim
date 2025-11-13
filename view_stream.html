@@ -154,6 +154,18 @@
                 pc.ontrack = (event) => {
                     console.log(`Received track for ${streamName}`, event.track);
                     video.srcObject = event.streams[0];
+                    // Ensure playback starts even if autoplay doesn't trigger immediately
+                    const tryPlay = () => {
+                        const p = video.play();
+                        if (p && typeof p.then === 'function') {
+                            p.catch(err => console.warn(`video.play() blocked or failed:`, err));
+                        }
+                    };
+                    if (video.readyState >= 1) {
+                        tryPlay();
+                    } else {
+                        video.onloadedmetadata = () => tryPlay();
+                    }
                     updateStatus(streamName, 'Connected', true);
                 };
 
