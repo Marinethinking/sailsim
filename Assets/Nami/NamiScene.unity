@@ -21352,7 +21352,7 @@ PrefabInstance:
     - target: {fileID: 3596391855334024965, guid: 78009cb4c460e41b38682ae4c8daf831,
         type: 3}
       propertyPath: waterOffset
-      value: 1.5
+      value: 0.4
       objectReference: {fileID: 0}
     - target: {fileID: 5598360444790488938, guid: 78009cb4c460e41b38682ae4c8daf831,
         type: 3}
@@ -21711,7 +21711,7 @@ PrefabInstance:
     - target: {fileID: 3596391855334024965, guid: 78009cb4c460e41b38682ae4c8daf831,
         type: 3}
       propertyPath: waterOffset
-      value: 1.5
+      value: 0.4
       objectReference: {fileID: 0}
     - target: {fileID: 5598360444790488938, guid: 78009cb4c460e41b38682ae4c8daf831,
         type: 3}
@@ -36908,7 +36908,7 @@ MonoBehaviour:
   referenceAtRigidbodyCOM: 1
   overrideWidth: 1280
   overrideHeight: 720
-  writeUnderAssetsFolder: 0
+  writeUnderAssetsFolder: 1
   outputDirectoryOverride: ~/Downloads
   forceFrontPlusZ: 1
 --- !u!1 &1525960008
@@ -37048,7 +37048,7 @@ PrefabInstance:
     - target: {fileID: 3596391855334024965, guid: 78009cb4c460e41b38682ae4c8daf831,
         type: 3}
       propertyPath: waterOffset
-      value: 1.5
+      value: 0.4
       objectReference: {fileID: 0}
     - target: {fileID: 5598360444790488938, guid: 78009cb4c460e41b38682ae4c8daf831,
         type: 3}
@@ -37273,6 +37273,8 @@ GameObject:
   - component: {fileID: 1589415831}
   - component: {fileID: 1589415832}
   - component: {fileID: 1589415833}
+  - component: {fileID: 1589415834}
+  - component: {fileID: 1589415835}
   m_Layer: 0
   m_Name: Acadia
   m_TagString: boat
@@ -37414,6 +37416,63 @@ MonoBehaviour:
   m_GameObject: {fileID: 1589415824}
   m_Enabled: 1
   m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 20e1a38025e7b4fdfaea3ab3e31c2eb3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Nami.ImuSimulator
+  vehicle: {fileID: 1589415832}
+  boatRigidbody: {fileID: 1589415828}
+  imuMount: {fileID: 1461065171}
+  updateRateHz: 200
+  enableRawOutput: 1
+  enableAttitudeOutput: 1
+  gyroNoiseStdDev: {x: 0.01, y: 0.01, z: 0.01}
+  accelNoiseStdDev: {x: 0.1, y: 0.1, z: 0.1}
+  magNoiseStdDev: {x: 0.1, y: 0.1, z: 0.1}
+  gyroBias: {x: 0, y: 0, z: 0}
+  accelBias: {x: 0, y: 0, z: 0}
+  magBias: {x: 0, y: 0, z: 0}
+  biasDriftRate: 0.0001
+  earthMagneticField: {x: 0, y: 0, z: -50000}
+--- !u!114 &1589415834
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1589415824}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d6a69a34bec5e4f9287149a9458429ce, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Nami.RadarSimulator
+  vehicle: {fileID: 1589415832}
+  boatRigidbody: {fileID: 1589415828}
+  radarMount: {fileID: 1461065171}
+  updateRateHz: 20
+  azimuthResolutionDeg: 1
+  maxRangeM: 200
+  azimuthFovDeg: 120
+  minElevationDeg: -15
+  maxElevationDeg: 15
+  elevationBeamwidthDeg: -6.14
+  raycastLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  noiseFloorDb: -90
+  seaClutterDb: -80
+  cfarThreshold: 2
+  cfarGuardCells: 2
+  cfarTrainingCells: 10
+  antennaGain: 1
+--- !u!114 &1589415835
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1589415824}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: ddbcef9c2908648d89d78d699a9fba0e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Nami.Nmea2000UdpBridge
@@ -37421,9 +37480,8 @@ MonoBehaviour:
   boatRigidbody: {fileID: 1589415828}
   gpsLocalOrigin: {x: 44.637424, y: -63.56362}
   maxSteerDeg: 60
-  telemetryAddress: 127.0.0.1:20100
-  controlBindAddress: 0.0.0.0:20101
   updateRateHz: 20
+  controlTimeoutSeconds: 1.5
 --- !u!1 &1601971930
 GameObject:
   m_ObjectHideFlags: 0
@@ -38250,7 +38308,7 @@ PrefabInstance:
     - target: {fileID: 3596391855334024965, guid: 78009cb4c460e41b38682ae4c8daf831,
         type: 3}
       propertyPath: waterOffset
-      value: 1.5
+      value: 0.4
       objectReference: {fileID: 0}
     - target: {fileID: 5598360444790488938, guid: 78009cb4c460e41b38682ae4c8daf831,
         type: 3}
@@ -75042,6 +75100,8 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 9085274039837570401}
+  - component: {fileID: 9085274039837570409}
+  - component: {fileID: 9085274039837570408}
   m_Layer: 0
   m_Name: VLP-16
   m_TagString: Untagged
@@ -75049,6 +75109,63 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
+--- !u!114 &9085274039837570408
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9085274039837570407}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 20e1a38025e7b4fdfaea3ab3e31c2eb3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Nami.ImuSimulator
+  vehicle: {fileID: 1589415832}
+  boatRigidbody: {fileID: 1589415828}
+  imuMount: {fileID: 1589415829}
+  updateRateHz: 200
+  enableRawOutput: 1
+  enableAttitudeOutput: 1
+  gyroNoiseStdDev: {x: 0.01, y: 0.01, z: 0.01}
+  accelNoiseStdDev: {x: 0.1, y: 0.1, z: 0.1}
+  magNoiseStdDev: {x: 0.1, y: 0.1, z: 0.1}
+  gyroBias: {x: 0, y: 0, z: 0}
+  accelBias: {x: 0, y: 0, z: 0}
+  magBias: {x: 0, y: 0, z: 0}
+  biasDriftRate: 0.0001
+  earthMagneticField: {x: 0, y: 0, z: -50000}
+--- !u!114 &9085274039837570409
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9085274039837570407}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d6a69a34bec5e4f9287149a9458429ce, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Nami.RadarSimulator
+  vehicle: {fileID: 1589415832}
+  boatRigidbody: {fileID: 1589415828}
+  radarMount: {fileID: 1589415829}
+  updateRateHz: 20
+  azimuthResolutionDeg: 1
+  maxRangeM: 200
+  azimuthFovDeg: 360
+  minElevationDeg: -5
+  maxElevationDeg: 5
+  elevationBeamwidthDeg: 5
+  raycastLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  noiseFloorDb: -90
+  seaClutterDb: -80
+  cfarThreshold: 2
+  cfarGuardCells: 2
+  cfarTrainingCells: 10
+  antennaGain: 1
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

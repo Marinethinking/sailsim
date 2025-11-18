@@ -22,14 +22,18 @@ namespace Nami
         public float maxSteerDeg = 60f;
 
         [Header("UDP Settings")]
-        public string telemetryAddress = "127.0.0.1:20100";
-        public string controlBindAddress = "0.0.0.0:20101";
         [Range(1, 120)] public int updateRateHz = 20;
+        [Tooltip("Seconds before throttle/steering fail-safe when no control heartbeats arrive. Set <=0 to disable.")]
+        public float controlTimeoutSeconds = 1.5f;
 
         private UdpClient _tx;
         private UdpClient _rx;
         private IPEndPoint _telemetryEp;
         private CancellationTokenSource _cts;
+        private readonly byte[] _frameBuffer = new byte[13];
+        private readonly byte[] _payloadBuffer = new byte[8];
+        private long _lastHeartbeatTicks;
+        private bool _controlFailSafeActive;
 
         private const uint PGN_POS_LATLON = 0x1F801;  // 129025 simplified
         private const uint PGN_COG_SOG = 0x1F802;  // 129026 simplified
@@ -38,24 +42,37 @@ namespace Nami
         private const uint PGN_ATTITUDE = 0x1F119;  // 127257 simplified
         private const uint PGN_SET_THROT = 0x1FC00;  // custom
         private const uint PGN_SET_RUDDER = 0x1FC01;  // custom
+        private const uint PGN_CONTROL_HEARTBEAT = 0x1FC02;  // custom heartbeat
 
         private void OnEnable()
         {
-            if (vehicle == null)
+            try
             {
-                vehicle = GetComponentInParent<Vehicle>();
+                if (vehicle == null)
+                {
+                    vehicle = GetComponentInParent<Vehicle>();
+                }
+                if (boatRigidbody == null && vehicle != null)
+                {
+                    boatRigidbody = vehicle.engine != null ? vehicle.engine.RB : GetComponentInParent<Rigidbody>();
+                }
+
+                GPSEncoder.SetLocalOrigin(gpsLocalOrigin);
+
+                _cts = new CancellationTokenSource();
+                SetupSockets();
+                _lastHeartbeatTicks = System.Diagnostics.Stopwatch.GetTimestamp();
+                _controlFailSafeActive = false;
+                _ = RunTxLoop(_cts.Token);
+                _ = RunRxLoop(_cts.Token);
+                
+                Debug.Log($"[Nmea2000UdpBridge] Started: telemetry={UdpTelemetryConfig.TelemetryMulticastAddress}:{UdpTelemetryConfig.TelemetryPort}, control={UdpTelemetryConfig.ControlPort}");
             }
-            if (boatRigidbody == null && vehicle != null)
+            catch (Exception e)
             {
-                boatRigidbody = vehicle.engine != null ? vehicle.engine.RB : GetComponentInParent<Rigidbody>();
+                Debug.LogError($"[Nmea2000UdpBridge] Failed to start: {e.Message}\n{e.StackTrace}");
+                enabled = false;
             }
-
-            GPSEncoder.SetLocalOrigin(gpsLocalOrigin);
-
-            _cts = new CancellationTokenSource();
-            SetupSockets();
-            _ = RunTxLoop(_cts.Token);
-            _ = RunRxLoop(_cts.Token);
         }
 
         private void OnDisable()
@@ -67,14 +84,9 @@ namespace Nami
 
         private void SetupSockets()
         {
-            var parts = telemetryAddress.Split(':');
-            if (parts.Length != 2) throw new Exception("telemetryAddress must be host:port");
-            _telemetryEp = new IPEndPoint(IPAddress.Parse(parts[0]), int.Parse(parts[1]));
-            _tx = new UdpClient();
-
-            var bindParts = controlBindAddress.Split(':');
-            if (bindParts.Length != 2) throw new Exception("controlBindAddress must be host:port");
-            _rx = new UdpClient(new IPEndPoint(IPAddress.Parse(bindParts[0]), int.Parse(bindParts[1])));
+            _telemetryEp = UdpTelemetryConfig.TelemetryEndpoint;
+            _tx = UdpTelemetryConfig.CreateTelemetrySender();
+            _rx = UdpTelemetryConfig.CreateControlListener();
         }
 
         private async Task RunTxLoop(CancellationToken ct)
@@ -128,104 +140,118 @@ namespace Nami
             int lon = (int)Mathf.Round(gps.y * 1e7f);
 
             // 129025 lat/lon
-            var f1 = BuildFrame(PGN_POS_LATLON, BitConverter.GetBytes(IPAddress.HostToNetworkOrder(lat)), BitConverter.GetBytes(IPAddress.HostToNetworkOrder(lon)));
-            SendFrame(f1);
+            SendFrame(PGN_POS_LATLON, payload =>
+            {
+                EndianBitConverter.WriteInt32BE(payload, 0, lat);
+                EndianBitConverter.WriteInt32BE(payload, 4, lon);
+            });
 
             // 129026 COG/SOG
             float speed = new Vector2(vel.x, vel.z).magnitude; // m/s
             float cogDeg = ComputeCourseOverGroundDeg(vel);
             ushort cog = (ushort)Mathf.Clamp(Mathf.RoundToInt(cogDeg * 100f), 0, 65535);
             ushort sog = (ushort)Mathf.Clamp(Mathf.RoundToInt(speed * 100f), 0, 65535);
-            var f2 = BuildFrame(PGN_COG_SOG, ToBE(cog), ToBE(sog), new byte[4]);
-            SendFrame(f2);
+            SendFrame(PGN_COG_SOG, payload =>
+            {
+                EndianBitConverter.WriteUInt16BE(payload, 0, cog);
+                EndianBitConverter.WriteUInt16BE(payload, 2, sog);
+            });
 
             // 127488 Engine RPM
             float rpmF = Mathf.Clamp01(vehicle != null ? vehicle.throttle : 0f) * 3000f;
             ushort rpm = (ushort)Mathf.RoundToInt(rpmF);
-            byte[] eng = new byte[8];
-            eng[0] = 0; // instance
-            var rpmBE = ToBE(rpm);
-            eng[1] = rpmBE[0]; eng[2] = rpmBE[1];
-            var f3 = BuildFrame(PGN_ENG_RPM, eng);
-            SendFrame(f3);
+            SendFrame(PGN_ENG_RPM, payload =>
+            {
+                payload[0] = 0;
+                EndianBitConverter.WriteUInt16BE(payload, 1, rpm);
+            });
 
             // 127245 Rudder angle
             float rudderDeg = Mathf.Clamp((vehicle != null ? vehicle.steering : 0f), -1f, 1f) * Mathf.Max(1f, maxSteerDeg);
             short rudder = (short)Mathf.RoundToInt(rudderDeg * 100f);
-            byte[] rud = new byte[8];
-            rud[0] = 0; // instance
-            var rudBE = ToBE(rudder);
-            rud[1] = rudBE[0]; rud[2] = rudBE[1];
-            var f4 = BuildFrame(PGN_RUDDER, rud);
-            SendFrame(f4);
+            SendFrame(PGN_RUDDER, payload =>
+            {
+                payload[0] = 0;
+                EndianBitConverter.WriteInt16BE(payload, 1, rudder);
+            });
 
             // 127257 Attitude roll/pitch/yaw
             short r = (short)Mathf.RoundToInt(roll * 100f);
             short p = (short)Mathf.RoundToInt(pitch * 100f);
             short y = (short)Mathf.RoundToInt(yaw * 100f);
-            var f5 = BuildFrame(PGN_ATTITUDE, ToBE(r), ToBE(p), ToBE(y), new byte[2]);
-            SendFrame(f5);
+            SendFrame(PGN_ATTITUDE, payload =>
+            {
+                EndianBitConverter.WriteInt16BE(payload, 0, r);
+                EndianBitConverter.WriteInt16BE(payload, 2, p);
+                EndianBitConverter.WriteInt16BE(payload, 4, y);
+            });
         }
 
         private void HandleControlFrame(byte[] buf)
         {
-            uint canId = (uint)IPAddress.NetworkToHostOrder(BitConverter.ToInt32(new byte[] { buf[0], buf[1], buf[2], buf[3] }, 0));
+            uint canId = EndianBitConverter.ReadUInt32BE(buf, 0);
             byte dlc = buf[4];
             // data starts at 5
             if (canId == PGN_SET_THROT && dlc >= 2)
             {
                 // data layout: data[0]=instance, data[1]=percent
-                float percent = buf[5 + 1] / 100f;
+                float percent = buf[6] / 100f;
                 if (vehicle != null) vehicle.throttle = Mathf.Clamp01(percent);
+                MarkHeartbeat();
             }
             else if (canId == PGN_SET_RUDDER && dlc >= 3)
             {
-                short angleCentideg = (short)IPAddress.NetworkToHostOrder(BitConverter.ToInt16(new byte[] { buf[6], buf[7] }, 0)); // data[1..2]
+                short angleCentideg = EndianBitConverter.ReadInt16BE(buf, 6);
                 float angleDeg = angleCentideg / 100f;
                 float norm = Mathf.Clamp(angleDeg / Mathf.Max(1f, maxSteerDeg), -1f, 1f);
                 if (vehicle != null) vehicle.steering = norm;
+                MarkHeartbeat();
             }
-        }
-
-        private static byte[] ToBE(ushort v)
-        {
-            var arr = BitConverter.GetBytes(v);
-            if (BitConverter.IsLittleEndian) Array.Reverse(arr);
-            return arr;
-        }
-
-        private static byte[] ToBE(short v)
-        {
-            var arr = BitConverter.GetBytes(v);
-            if (BitConverter.IsLittleEndian) Array.Reverse(arr);
-            return arr;
-        }
-
-        private static byte[] BuildFrame(uint canId, params byte[][] payloads)
-        {
-            byte[] data = new byte[8];
-            int offset = 0;
-            foreach (var p in payloads)
+            else if (canId == PGN_CONTROL_HEARTBEAT)
             {
-                int len = Mathf.Min(p.Length, 8 - offset);
-                Array.Copy(p, 0, data, offset, len);
-                offset += len;
-                if (offset >= 8) break;
+                MarkHeartbeat();
             }
+        }
+        private void SendFrame(uint canId, Action<byte[]> payloadWriter)
+        {
+            Array.Clear(_payloadBuffer, 0, _payloadBuffer.Length);
+            payloadWriter?.Invoke(_payloadBuffer);
 
-            byte[] frame = new byte[13];
-            var idBE = BitConverter.GetBytes((int)canId);
-            if (BitConverter.IsLittleEndian) Array.Reverse(idBE);
-            frame[0] = idBE[0]; frame[1] = idBE[1]; frame[2] = idBE[2]; frame[3] = idBE[3];
-            frame[4] = 8; // dlc
-            Array.Copy(data, 0, frame, 5, 8);
-            return frame;
+            EndianBitConverter.WriteUInt32BE(_frameBuffer, 0, canId);
+            _frameBuffer[4] = 8;
+            Buffer.BlockCopy(_payloadBuffer, 0, _frameBuffer, 5, 8);
+
+            try { _tx.Send(_frameBuffer, _frameBuffer.Length, _telemetryEp); }
+            catch (Exception e) { Debug.LogError($"UDP send failed: {e.Message}"); }
         }
 
-        private void SendFrame(byte[] frame)
+        private void Update()
         {
-            try { _tx.Send(frame, frame.Length, _telemetryEp); }
-            catch (Exception e) { Debug.LogError($"UDP send failed: {e.Message}"); }
+            if (controlTimeoutSeconds <= 0f || vehicle == null) return;
+
+            var lastTicks = Interlocked.Read(ref _lastHeartbeatTicks);
+            var elapsed = (double)(System.Diagnostics.Stopwatch.GetTimestamp() - lastTicks) / System.Diagnostics.Stopwatch.Frequency;
+            var inactive = elapsed > controlTimeoutSeconds;
+            
+            if (inactive)
+            {
+                if (!_controlFailSafeActive)
+                {
+                    vehicle.throttle = 0f;
+                    vehicle.steering = 0f;
+                    _controlFailSafeActive = true;
+                    UnityEngine.Debug.LogWarning($"Control fail-safe activated: no heartbeat for {elapsed:F2}s");
+                }
+            }
+            else
+            {
+                _controlFailSafeActive = false;
+            }
+        }
+
+        private void MarkHeartbeat()
+        {
+            Interlocked.Exchange(ref _lastHeartbeatTicks, System.Diagnostics.Stopwatch.GetTimestamp());
         }
 
         private static float NormalizeDeg(float deg)

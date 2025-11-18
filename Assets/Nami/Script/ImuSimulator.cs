@@ -18,7 +18,6 @@ namespace Nami
 
         [Header("IMU Settings")]
         [Range(50, 400)] public int updateRateHz = 200;
-        public string udpAddress = "127.0.0.1:20102";
         [Tooltip("Enable raw sensor output (gyro/accel/mag)")]
         public bool enableRawOutput = true;
         [Tooltip("Enable fused attitude output (roll/pitch/yaw)")]
@@ -60,34 +59,48 @@ namespace Nami
         private Vector3 _currentGyroBias;
         private Vector3 _currentAccelBias;
         private Vector3 _currentMagBias;
+        private byte[] _rawBuffer;
+        private byte[] _attBuffer;
 
         private void OnEnable()
         {
-            if (vehicle == null)
+            try
             {
-                vehicle = GetComponentInParent<Vehicle>();
-            }
-            if (boatRigidbody == null && vehicle != null)
-            {
-                boatRigidbody = vehicle.engine != null ? vehicle.engine.RB : GetComponentInParent<Rigidbody>();
-            }
-            if (imuMount == null)
-            {
-                imuMount = transform;
-            }
+                if (vehicle == null)
+                {
+                    vehicle = GetComponentInParent<Vehicle>();
+                }
+                if (boatRigidbody == null && vehicle != null)
+                {
+                    boatRigidbody = vehicle.engine != null ? vehicle.engine.RB : GetComponentInParent<Rigidbody>();
+                }
+                if (imuMount == null)
+                {
+                    imuMount = transform;
+                }
 
-            _currentGyroBias = gyroBias;
-            _currentAccelBias = accelBias;
-            _currentMagBias = magBias;
-            _prevTime = Time.time;
-            if (boatRigidbody != null)
-            {
-                _prevVelocity = boatRigidbody.linearVelocity;
-            }
+                _currentGyroBias = gyroBias;
+                _currentAccelBias = accelBias;
+                _currentMagBias = magBias;
+                if (_rawBuffer == null) _rawBuffer = new byte[48];
+                if (_attBuffer == null) _attBuffer = new byte[24];
+                _prevTime = Time.time;
+                if (boatRigidbody != null)
+                {
+                    _prevVelocity = boatRigidbody.linearVelocity;
+                }
 
-            _cts = new CancellationTokenSource();
-            SetupSockets();
-            _ = RunTxLoop(_cts.Token);
+                _cts = new CancellationTokenSource();
+                SetupSockets();
+                _ = RunTxLoop(_cts.Token);
+                
+                Debug.Log($"[ImuSimulator] Started: telemetry={UdpTelemetryConfig.TelemetryMulticastAddress}:{UdpTelemetryConfig.TelemetryPort}, rate={updateRateHz}Hz");
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[ImuSimulator] Failed to start: {e.Message}\n{e.StackTrace}");
+                enabled = false;
+            }
         }
 
         private void OnDisable()
@@ -98,10 +111,8 @@ namespace Nami
 
         private void SetupSockets()
         {
-            var parts = udpAddress.Split(':');
-            if (parts.Length != 2) throw new Exception("udpAddress must be host:port");
-            _telemetryEp = new IPEndPoint(IPAddress.Parse(parts[0]), int.Parse(parts[1]));
-            _tx = new UdpClient();
+            _telemetryEp = UdpTelemetryConfig.TelemetryEndpoint;
+            _tx = UdpTelemetryConfig.CreateTelemetrySender();
         }
 
         private async Task RunTxLoop(CancellationToken ct)
@@ -136,11 +147,10 @@ namespace Nami
             var worldAccel = (worldVelocity - _prevVelocity) / deltaTime;
             var worldGravity = Physics.gravity;
 
-            // Transform to IMU body frame
-            var imuRotation = imuMount.rotation;
-            var bodyAngularVel = imuRotation * worldAngularVel;
-            var bodyAccel = imuRotation * (worldAccel - worldGravity); // Specific force (accel - gravity)
-            var bodyMag = imuRotation * earthMagneticField;
+            // Transform to IMU body frame (world → body requires inverse rotation)
+            var bodyAngularVel = imuMount.InverseTransformDirection(worldAngularVel);
+            var bodyAccel = imuMount.InverseTransformDirection(worldAccel - worldGravity); // Specific force (accel - gravity)
+            var bodyMag = imuMount.InverseTransformDirection(earthMagneticField);
 
             // Update bias with random walk
             _currentGyroBias += new Vector3(
@@ -190,7 +200,7 @@ namespace Nami
             // Message format: [4-byte header][8-byte timestamp][36-byte payload (9 floats)]
             // Total: 48 bytes
             var timestamp = (long)(time * 1000000); // Unix microseconds
-            var buffer = new byte[48];
+            var buffer = _rawBuffer;
             int offset = 0;
 
             // Header
@@ -198,20 +208,19 @@ namespace Nami
             offset += 4;
 
             // Timestamp (8 bytes, big-endian)
-            var timestampBytes = BitConverter.GetBytes(IPAddress.HostToNetworkOrder(timestamp));
-            Array.Copy(timestampBytes, 0, buffer, offset, 8);
+            EndianBitConverter.WriteInt64BE(buffer, offset, timestamp);
             offset += 8;
 
             // Payload: gyro[3], accel[3], mag[3] (36 bytes)
-            WriteFloatBE(buffer, ref offset, gyro.x);
-            WriteFloatBE(buffer, ref offset, gyro.y);
-            WriteFloatBE(buffer, ref offset, gyro.z);
-            WriteFloatBE(buffer, ref offset, accel.x);
-            WriteFloatBE(buffer, ref offset, accel.y);
-            WriteFloatBE(buffer, ref offset, accel.z);
-            WriteFloatBE(buffer, ref offset, mag.x);
-            WriteFloatBE(buffer, ref offset, mag.y);
-            WriteFloatBE(buffer, ref offset, mag.z);
+            EndianBitConverter.WriteFloatBE(buffer, offset, gyro.x); offset += 4;
+            EndianBitConverter.WriteFloatBE(buffer, offset, gyro.y); offset += 4;
+            EndianBitConverter.WriteFloatBE(buffer, offset, gyro.z); offset += 4;
+            EndianBitConverter.WriteFloatBE(buffer, offset, accel.x); offset += 4;
+            EndianBitConverter.WriteFloatBE(buffer, offset, accel.y); offset += 4;
+            EndianBitConverter.WriteFloatBE(buffer, offset, accel.z); offset += 4;
+            EndianBitConverter.WriteFloatBE(buffer, offset, mag.x); offset += 4;
+            EndianBitConverter.WriteFloatBE(buffer, offset, mag.y); offset += 4;
+            EndianBitConverter.WriteFloatBE(buffer, offset, mag.z); offset += 4;
 
             SendFrame(buffer);
         }
@@ -221,7 +230,7 @@ namespace Nami
             // Message format: [4-byte header][8-byte timestamp][12-byte payload (3 floats)]
             // Total: 24 bytes
             var timestamp = (long)(time * 1000000); // Unix microseconds
-            var buffer = new byte[24];
+            var buffer = _attBuffer;
             int offset = 0;
 
             // Header
@@ -229,24 +238,15 @@ namespace Nami
             offset += 4;
 
             // Timestamp (8 bytes, big-endian)
-            var timestampBytes = BitConverter.GetBytes(IPAddress.HostToNetworkOrder(timestamp));
-            Array.Copy(timestampBytes, 0, buffer, offset, 8);
+            EndianBitConverter.WriteInt64BE(buffer, offset, timestamp);
             offset += 8;
 
             // Payload: roll, pitch, yaw (12 bytes)
-            WriteFloatBE(buffer, ref offset, roll);
-            WriteFloatBE(buffer, ref offset, pitch);
-            WriteFloatBE(buffer, ref offset, yaw);
+            EndianBitConverter.WriteFloatBE(buffer, offset, roll); offset += 4;
+            EndianBitConverter.WriteFloatBE(buffer, offset, pitch); offset += 4;
+            EndianBitConverter.WriteFloatBE(buffer, offset, yaw); offset += 4;
 
             SendFrame(buffer);
-        }
-
-        private static void WriteFloatBE(byte[] buffer, ref int offset, float value)
-        {
-            var bytes = BitConverter.GetBytes(value);
-            if (BitConverter.IsLittleEndian) Array.Reverse(bytes);
-            Array.Copy(bytes, 0, buffer, offset, 4);
-            offset += 4;
         }
 
         private void SendFrame(byte[] frame)

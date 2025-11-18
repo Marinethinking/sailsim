@@ -1,4 +1,5 @@
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
@@ -21,17 +22,16 @@ namespace Nami
 
         [Header("Radar Settings")]
         [Range(10, 30)] public int updateRateHz = 20;
-        public string udpAddress = "127.0.0.1:20102";
         [Range(0.5f, 2.0f)] public float azimuthResolutionDeg = 1.0f;
         [Range(50f, 500f)] public float maxRangeM = 200f;
         [Tooltip("Azimuth field of view in degrees. 360 = full sweep, <360 = sector scan")]
-        [Range(10f, 360f)] public float azimuthFovDeg = 360f;
-        [Tooltip("Minimum elevation angle (degrees)")]
-        public float minElevationDeg = -5f;
-        [Tooltip("Maximum elevation angle (degrees)")]
-        public float maxElevationDeg = 5f;
-        [Tooltip("Elevation beamwidth (degrees). Single beam if min==max, multi-beam if different.")]
-        public float elevationBeamwidthDeg = 5f;
+        [Range(10f, 360f)] public float azimuthFovDeg = 120;
+        [Tooltip("Minimum elevation angle (degrees). TI-style mmWave typically uses ~-15 to +15.")]
+        public float minElevationDeg = -15f;
+        [Tooltip("Maximum elevation angle (degrees). TI-style mmWave typically uses ~-15 to +15.")]
+        public float maxElevationDeg = 15f;
+        [Tooltip("Elevation beamwidth (degrees) used to place multiple vertical beams between min and max.")]
+        public float elevationBeamwidthDeg = 10f;
         [Tooltip("Layers to raycast against")]
         public LayerMask raycastLayers = -1;
 
@@ -72,23 +72,33 @@ namespace Nami
 
         private void OnEnable()
         {
-            if (vehicle == null)
+            try
             {
-                vehicle = GetComponentInParent<Vehicle>();
-            }
-            if (boatRigidbody == null && vehicle != null)
-            {
-                boatRigidbody = vehicle.engine != null ? vehicle.engine.RB : GetComponentInParent<Rigidbody>();
-            }
-            if (radarMount == null)
-            {
-                radarMount = transform;
-            }
+                if (vehicle == null)
+                {
+                    vehicle = GetComponentInParent<Vehicle>();
+                }
+                if (boatRigidbody == null && vehicle != null)
+                {
+                    boatRigidbody = vehicle.engine != null ? vehicle.engine.RB : GetComponentInParent<Rigidbody>();
+                }
+                if (radarMount == null)
+                {
+                    radarMount = transform;
+                }
 
-            _cts = new CancellationTokenSource();
-            SetupSockets();
-            _rayDirectionsDirty = true;
-            _ = RunTxLoop(_cts.Token);
+                _cts = new CancellationTokenSource();
+                SetupSockets();
+                _rayDirectionsDirty = true;
+                _ = RunTxLoop(_cts.Token);
+                
+                Debug.Log($"[RadarSimulator] Started: telemetry={UdpTelemetryConfig.TelemetryMulticastAddress}:{UdpTelemetryConfig.TelemetryPort}, rate={updateRateHz}Hz");
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[RadarSimulator] Failed to start: {e.Message}\n{e.StackTrace}");
+                enabled = false;
+            }
         }
 
         private void OnDisable()
@@ -105,10 +115,8 @@ namespace Nami
 
         private void SetupSockets()
         {
-            var parts = udpAddress.Split(':');
-            if (parts.Length != 2) throw new Exception("udpAddress must be host:port");
-            _telemetryEp = new IPEndPoint(IPAddress.Parse(parts[0]), int.Parse(parts[1]));
-            _tx = new UdpClient();
+            _telemetryEp = UdpTelemetryConfig.TelemetryEndpoint;
+            _tx = UdpTelemetryConfig.CreateTelemetrySender();
         }
 
         private async Task RunTxLoop(CancellationToken ct)
@@ -204,7 +212,6 @@ namespace Nami
             var radarPos = radarMount.position;
             var radarRot = radarMount.rotation;
             var radarVel = boatRigidbody != null ? boatRigidbody.linearVelocity : Vector3.zero;
-            var radarAngVel = boatRigidbody != null ? boatRigidbody.angularVelocity : Vector3.zero;
 
             // Prepare raycast commands
             var commands = new NativeArray<RaycastCommand>(_rayDirections.Count, Allocator.TempJob);
@@ -280,11 +287,15 @@ namespace Nami
                 rcs = Mathf.Max(size.x * size.y, size.x * size.z, size.y * size.z); // Approximate cross-section
 
                 // Tag-based RCS multiplier (can be extended)
-                if (collider.CompareTag("Boat") || collider.CompareTag("Vehicle"))
+                // NOTE: we intentionally avoid CompareTag() here to prevent
+                // Unity errors when tags like \"Boat\" / \"Vehicle\" / \"Buoy\" / \"Marker\"
+                // are not defined in the project's Tag Manager.
+                var tag = collider.tag;
+                if (tag == "Boat" || tag == "Vehicle")
                 {
                     rcs *= 10.0f; // Larger targets
                 }
-                else if (collider.CompareTag("Buoy") || collider.CompareTag("Marker"))
+                else if (tag == "Buoy" || tag == "Marker")
                 {
                     rcs *= 2.0f; // Medium targets
                 }
@@ -380,49 +391,45 @@ namespace Nami
             var timestamp = (long)(Time.time * 1000000); // Unix microseconds
             var count = (ushort)Mathf.Min(detections.Count, 65535);
             var messageSize = 14 + (count * 20);
-            var buffer = new byte[messageSize];
-            int offset = 0;
-
-            // Header
-            Array.Copy(MSG_RADAR, 0, buffer, offset, 4);
-            offset += 4;
-
-            // Timestamp (8 bytes, big-endian)
-            var timestampBytes = BitConverter.GetBytes(IPAddress.HostToNetworkOrder(timestamp));
-            Array.Copy(timestampBytes, 0, buffer, offset, 8);
-            offset += 8;
-
-            // Detection count (2 bytes, big-endian)
-            var countBytes = BitConverter.GetBytes((ushort)count);
-            if (BitConverter.IsLittleEndian) Array.Reverse(countBytes);
-            Array.Copy(countBytes, 0, buffer, offset, 2);
-            offset += 2;
-
-            // Detections (20 bytes each: range, azimuth, elevation, doppler, power)
-            for (int i = 0; i < count; i++)
+            var buffer = ArrayPool<byte>.Shared.Rent(messageSize);
+            try
             {
-                var det = detections[i];
-                WriteFloatBE(buffer, ref offset, det.range);
-                WriteFloatBE(buffer, ref offset, det.azimuth);
-                WriteFloatBE(buffer, ref offset, det.elevation);
-                WriteFloatBE(buffer, ref offset, det.doppler);
-                WriteFloatBE(buffer, ref offset, det.power);
+                int offset = 0;
+
+                // Header
+                Array.Copy(MSG_RADAR, 0, buffer, offset, 4);
+                offset += 4;
+
+                // Timestamp (8 bytes, big-endian)
+                EndianBitConverter.WriteInt64BE(buffer, offset, timestamp);
+                offset += 8;
+
+                // Detection count (2 bytes, big-endian)
+                EndianBitConverter.WriteUInt16BE(buffer, offset, count);
+                offset += 2;
+
+                // Detections (20 bytes each: range, azimuth, elevation, doppler, power)
+                for (int i = 0; i < count; i++)
+                {
+                    var det = detections[i];
+                    EndianBitConverter.WriteFloatBE(buffer, offset, det.range); offset += 4;
+                    EndianBitConverter.WriteFloatBE(buffer, offset, det.azimuth); offset += 4;
+                    EndianBitConverter.WriteFloatBE(buffer, offset, det.elevation); offset += 4;
+                    EndianBitConverter.WriteFloatBE(buffer, offset, det.doppler); offset += 4;
+                    EndianBitConverter.WriteFloatBE(buffer, offset, det.power); offset += 4;
+                }
+
+                SendFrame(buffer, messageSize);
             }
-
-            SendFrame(buffer);
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(buffer);
+            }
         }
 
-        private static void WriteFloatBE(byte[] buffer, ref int offset, float value)
+        private void SendFrame(byte[] frame, int length)
         {
-            var bytes = BitConverter.GetBytes(value);
-            if (BitConverter.IsLittleEndian) Array.Reverse(bytes);
-            Array.Copy(bytes, 0, buffer, offset, 4);
-            offset += 4;
-        }
-
-        private void SendFrame(byte[] frame)
-        {
-            try { _tx.Send(frame, frame.Length, _telemetryEp); }
+            try { _tx.Send(frame, length, _telemetryEp); }
             catch (Exception e) { Debug.LogError($"Radar UDP send failed: {e.Message}"); }
         }
 
