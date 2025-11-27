@@ -64,17 +64,19 @@ namespace Nami
         /// <summary>
         /// Controls the acceleration of the boat
         /// </summary>
-        /// <param name="modifier">Acceleration modifier, adds force in the 0-1 range</param>
+        /// <param name="modifier">Acceleration modifier, -1 (full reverse) to +1 (full forward)</param>
         public void Accelerate(float modifier)
         {
-
-            modifier = Mathf.Clamp(modifier, 0f, 1f); // clamp for reasonable values
+            // Allow reverse as well as forward throttle
+            modifier = Mathf.Clamp(modifier, -1f, 1f);
             var forward = RB.transform.forward;
             forward.y = 0f;
             forward.Normalize();
-            force = horsePower * modifier * forward;
+            // Reduce reverse thrust a bit so backing up is slower than forward
+            float powerScale = modifier >= 0f ? 1f : 0.5f;
+            force = horsePower * powerScale * modifier * forward;
             RB.AddForce(force, ForceMode.Acceleration); // add force forward based on input and horsepower
-            RB.AddRelativeTorque(-Vector3.right * modifier, ForceMode.Acceleration);
+            RB.AddRelativeTorque(-Vector3.right * Mathf.Abs(modifier), ForceMode.Acceleration);
 
         }
 

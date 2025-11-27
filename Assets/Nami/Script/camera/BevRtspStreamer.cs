@@ -32,26 +32,39 @@ namespace Nami
 
         public string rtspBaseUrl = "rtsp://127.0.0.1:8554/";
         public string ffmpegPath = "ffmpeg"; // Set absolute path if Editor PATH doesn't include ffmpeg
+
         public List<StreamConfig> streams = new List<StreamConfig>();
         [Tooltip("Force a specific encoder (e.g., 'h264_nvenc', 'h264_vaapi', 'libx264'). Leave empty for auto-detection.")]
         public string forceEncoder = ""; // Allow manual override
+        
+        [Header("Debug")]
+        [Tooltip("Log streaming status periodically")]
+        public bool logStreamingDebug = true;
+        [Tooltip("Seconds between streaming debug logs")]
+        public float debugLogIntervalSec = 15.0f;
 
         private readonly List<RenderTexture> _renderTextures = new List<RenderTexture>();
         private readonly List<RenderTexture> _resolveLdrTextures = new List<RenderTexture>();
-        private readonly List<FfmpegPusher> _pushers = new List<FfmpegPusher>();
+        private readonly List<SimpleRtspPusher> _pushers = new List<SimpleRtspPusher>();
         private readonly List<float> _nextCaptureTime = new List<float>();
         private readonly List<bool> _readbackPending = new List<bool>();
+        private readonly List<ulong> _frameIds = new List<ulong>();
+        private readonly List<float> _nextDebugLogTime = new List<float>();
+        private CameraMetaPublisher _metaPublisher;
         private int _generation = 0;
         private static readonly System.Collections.Generic.HashSet<string> _detectedEncoders = new System.Collections.Generic.HashSet<string>();
 
         private void OnEnable()
         {
+            _metaPublisher = new CameraMetaPublisher();
             InitializeStreams();
         }
 
         private void OnDisable()
         {
             TeardownStreams();
+            _metaPublisher?.Dispose();
+            _metaPublisher = null;
         }
 
         private void InitializeStreams()
@@ -62,6 +75,8 @@ namespace Nami
             _pushers.Clear();
             _nextCaptureTime.Clear();
             _readbackPending.Clear();
+            _frameIds.Clear();
+            _nextDebugLogTime.Clear();
             _generation++;
 
             // Resolve ffmpeg absolute path if needed
@@ -138,13 +153,15 @@ namespace Nami
                 }
 
                 var url = rtspBaseUrl.TrimEnd('/') + "/" + sc.streamName;
-                var pusher = new FfmpegPusher(ffmpegPath, width, height, sc.fps, sc.bitrateKbps, url, sc.flipVertical, forceEncoder);
+                var pusher = new SimpleRtspPusher(ffmpegPath, width, height, sc.fps, sc.bitrateKbps, url, sc.flipVertical, forceEncoder);
                 pusher.Start();
 
                 _renderTextures.Add(rt);
                 _pushers.Add(pusher);
                 _nextCaptureTime.Add(Time.time);
                 _readbackPending.Add(false);
+                _frameIds.Add(0);
+                _nextDebugLogTime.Add(Time.time + debugLogIntervalSec);
             }
         }
 
@@ -213,6 +230,23 @@ namespace Nami
 
                 _readbackPending[i] = true;
 
+                var frameId = ++_frameIds[i];
+                // Use UtcNow for absolute timestamp (aligns with other systems if synchronized)
+                var captureTimestamp = (DateTime.UtcNow - new DateTime(1970, 1, 1)).TotalSeconds;
+                
+                _metaPublisher?.Publish(sc.streamName, frameId, captureTimestamp);
+
+                // Throttled debug logging with encoding metrics
+                if (logStreamingDebug && now >= _nextDebugLogTime[i])
+                {
+                    _nextDebugLogTime[i] = now + debugLogIntervalSec;
+                    var status = pusher.IsRunning ? "running" : "stopped";
+                    var metrics = pusher.IsRunning 
+                        ? $"encoded={pusher.EncodedFrames} fps={pusher.EncodingFps:F1} speed={pusher.EncodingSpeed:F2}x queue={pusher.QueueSize}"
+                        : "N/A";
+                    UnityEngine.Debug.Log($"[BevRtspStreamer] {sc.streamName}: capture_frame={frameId} status={status} {metrics}");
+                }
+
                 var cbIndex = i;            // capture stable index
                 var cbGeneration = _generation; // capture generation to discard stale callbacks
 
@@ -232,11 +266,12 @@ namespace Nami
                     // This copy is necessary but adds overhead - GPU readback is the main bottleneck
                     var bytes = new byte[data.Length];
                     data.CopyTo(bytes);
-                    p.EnqueueFrame(bytes);
+                    p.EnqueueFrame(bytes, frameId, captureTimestamp);
                 });
             }
         }
 
+        /*
         private sealed class FfmpegPusher : IDisposable
         {
             private readonly string _ffmpegPath;
@@ -474,13 +509,14 @@ namespace Nami
                         _proc.WaitForExit(1000);
                     }
                 }
-                catch { }
+                catch {                 }
                 finally
                 {
                     _proc?.Dispose();
                 }
             }
         }
+        */
 
         // Switch which Unity Camera is streamed for a given stream name at runtime.
         // This will rebuild the render textures and restart the ffmpeg pushers.

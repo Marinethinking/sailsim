@@ -92,7 +92,7 @@ namespace Nami
                 _rayDirectionsDirty = true;
                 _ = RunTxLoop(_cts.Token);
                 
-                Debug.Log($"[RadarSimulator] Started: telemetry={UdpTelemetryConfig.TelemetryMulticastAddress}:{UdpTelemetryConfig.TelemetryPort}, rate={updateRateHz}Hz");
+                Debug.Log($"[RadarSimulator] Started: telemetry={UdpPublisher.TelemetryMulticastAddress}:{UdpPublisher.TelemetryPort}, rate={updateRateHz}Hz");
             }
             catch (Exception e)
             {
@@ -115,8 +115,8 @@ namespace Nami
 
         private void SetupSockets()
         {
-            _telemetryEp = UdpTelemetryConfig.TelemetryEndpoint;
-            _tx = UdpTelemetryConfig.CreateTelemetrySender();
+            _telemetryEp = UdpPublisher.TelemetryEndpoint;
+            _tx = UdpPublisher.CreateTelemetrySender();
         }
 
         private async Task RunTxLoop(CancellationToken ct)

@@ -66,7 +66,7 @@ namespace Nami
                 _ = RunTxLoop(_cts.Token);
                 _ = RunRxLoop(_cts.Token);
                 
-                Debug.Log($"[Nmea2000UdpBridge] Started: telemetry={UdpTelemetryConfig.TelemetryMulticastAddress}:{UdpTelemetryConfig.TelemetryPort}, control={UdpTelemetryConfig.ControlPort}");
+                Debug.Log($"[Nmea2000UdpBridge] Started: telemetry={UdpPublisher.TelemetryMulticastAddress}:{UdpPublisher.TelemetryPort}, control={UdpPublisher.ControlPort}");
             }
             catch (Exception e)
             {
@@ -84,9 +84,9 @@ namespace Nami
 
         private void SetupSockets()
         {
-            _telemetryEp = UdpTelemetryConfig.TelemetryEndpoint;
-            _tx = UdpTelemetryConfig.CreateTelemetrySender();
-            _rx = UdpTelemetryConfig.CreateControlListener();
+            _telemetryEp = UdpPublisher.TelemetryEndpoint;
+            _tx = UdpPublisher.CreateTelemetrySender();
+            _rx = UdpPublisher.CreateControlListener();
         }
 
         private async Task RunTxLoop(CancellationToken ct)

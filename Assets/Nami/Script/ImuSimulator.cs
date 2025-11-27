@@ -43,6 +43,12 @@ namespace Nami
         [Tooltip("Earth magnetic field vector in world frame (µT). Default: pointing down (typical for northern hemisphere).")]
         public Vector3 earthMagneticField = new Vector3(0, 0, -50000f);
 
+        [Header("Debug")]
+        [Tooltip("Print periodic IMU debug lines to the Unity Console.")]
+        public bool logImuDebug = false;
+        [Tooltip("Seconds between IMU debug logs when enabled.")]
+        public float debugLogIntervalSec = 100.0f;
+
         private UdpClient _tx;
         private IPEndPoint _telemetryEp;
         private CancellationTokenSource _cts;
@@ -59,6 +65,7 @@ namespace Nami
         private Vector3 _currentGyroBias;
         private Vector3 _currentAccelBias;
         private Vector3 _currentMagBias;
+        private float _nextDebugLogTime;
         private byte[] _rawBuffer;
         private byte[] _attBuffer;
 
@@ -85,6 +92,7 @@ namespace Nami
                 if (_rawBuffer == null) _rawBuffer = new byte[48];
                 if (_attBuffer == null) _attBuffer = new byte[24];
                 _prevTime = Time.time;
+                _nextDebugLogTime = _prevTime + Mathf.Max(0.1f, debugLogIntervalSec);
                 if (boatRigidbody != null)
                 {
                     _prevVelocity = boatRigidbody.linearVelocity;
@@ -94,7 +102,7 @@ namespace Nami
                 SetupSockets();
                 _ = RunTxLoop(_cts.Token);
                 
-                Debug.Log($"[ImuSimulator] Started: telemetry={UdpTelemetryConfig.TelemetryMulticastAddress}:{UdpTelemetryConfig.TelemetryPort}, rate={updateRateHz}Hz");
+                Debug.Log($"[ImuSimulator] Started: telemetry={UdpPublisher.TelemetryMulticastAddress}:{UdpPublisher.TelemetryPort}, rate={updateRateHz}Hz");
             }
             catch (Exception e)
             {
@@ -111,8 +119,8 @@ namespace Nami
 
         private void SetupSockets()
         {
-            _telemetryEp = UdpTelemetryConfig.TelemetryEndpoint;
-            _tx = UdpTelemetryConfig.CreateTelemetrySender();
+            _telemetryEp = UdpPublisher.TelemetryEndpoint;
+            _tx = UdpPublisher.CreateTelemetrySender();
         }
 
         private async Task RunTxLoop(CancellationToken ct)
@@ -188,6 +196,17 @@ namespace Nami
                 var pitch = NormalizeDeg(euler.x);
                 var yaw = NormalizeDeg(euler.y);
                 SendAttitudeMessage(roll, pitch, yaw, currentTime);
+            }
+
+            // Throttled debug logging
+            if (logImuDebug && currentTime >= _nextDebugLogTime)
+            {
+                _nextDebugLogTime = currentTime + Mathf.Max(0.1f, debugLogIntervalSec);
+                Debug.Log(
+                    $"[ImuSimulator] t={currentTime:F3}s " +
+                    $"gyro=({gyro.x:F3},{gyro.y:F3},{gyro.z:F3}) rad/s " +
+                    $"accel=({accel.x:F2},{accel.y:F2},{accel.z:F2}) m/s^2 " +
+                    $"mag=({mag.x:F1},{mag.y:F1},{mag.z:F1}) µT");
             }
 
             // Update previous values

@@ -5354,6 +5354,7 @@ MonoBehaviour:
   m_VerticalAlignment: 256
   m_textAlignment: 65535
   m_characterSpacing: 0
+  m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
   m_lineSpacingMax: 0
@@ -5467,7 +5468,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!114 &547128357
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -6000,7 +6001,7 @@ MonoBehaviour:
   m_RenderShadows: 1
   m_RequiresDepthTextureOption: 2
   m_RequiresOpaqueTextureOption: 2
-  m_CameraType: 1
+  m_CameraType: 0
   m_Cameras: []
   m_RendererIndex: -1
   m_VolumeLayerMask:
@@ -6038,7 +6039,7 @@ Camera:
   m_GameObject: {fileID: 668146044}
   m_Enabled: 1
   serializedVersion: 2
-  m_ClearFlags: 4
+  m_ClearFlags: 1
   m_BackGroundColor: {r: 0.740566, g: 0.9904304, b: 1, a: 0}
   m_projectionMatrixMode: 1
   m_GateFitMode: 2
@@ -6281,7 +6282,7 @@ MonoBehaviour:
   m_RenderShadows: 1
   m_RequiresDepthTextureOption: 2
   m_RequiresOpaqueTextureOption: 2
-  m_CameraType: 1
+  m_CameraType: 0
   m_Cameras: []
   m_RendererIndex: -1
   m_VolumeLayerMask:
@@ -6319,7 +6320,7 @@ Camera:
   m_GameObject: {fileID: 751538174}
   m_Enabled: 1
   serializedVersion: 2
-  m_ClearFlags: 4
+  m_ClearFlags: 1
   m_BackGroundColor: {r: 0.740566, g: 0.9904304, b: 1, a: 0}
   m_projectionMatrixMode: 1
   m_GateFitMode: 2
@@ -21352,7 +21353,7 @@ PrefabInstance:
     - target: {fileID: 3596391855334024965, guid: 78009cb4c460e41b38682ae4c8daf831,
         type: 3}
       propertyPath: waterOffset
-      value: 0.4
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 5598360444790488938, guid: 78009cb4c460e41b38682ae4c8daf831,
         type: 3}
@@ -21383,6 +21384,7 @@ GameObject:
   - component: {fileID: 1017609896}
   - component: {fileID: 1017609895}
   - component: {fileID: 1017609903}
+  - component: {fileID: 1017609904}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -21515,7 +21517,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1017609894}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 72ece51f2901e7445ab60da3685d6b5f, type: 3}
   m_Name: 
@@ -21540,6 +21542,23 @@ MonoBehaviour:
       m_PostInfinity: 2
       m_RotationOrder: 4
   CustomBlends: {fileID: 0}
+--- !u!114 &1017609904
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1017609894}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ef043176460d0843f854237e9b35c4b5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Nami.FollowBoatCamera
+  target: {fileID: 1589415829}
+  localOffset: {x: 0, y: 3, z: -180}
+  localEulerOffset: {x: 10, y: 0, z: 0}
+  positionLerpSpeed: 5
+  rotationLerpSpeed: 5
 --- !u!1 &1063790445
 GameObject:
   m_ObjectHideFlags: 0
@@ -21593,33 +21612,35 @@ MonoBehaviour:
   streams:
   - streamName: front
     camera: {fileID: 1461065173}
-    width: 1280
-    height: 720
-    fps: 30
-    bitrateKbps: 10000
+    width: 512
+    height: 512
+    fps: 20
+    bitrateKbps: 4000
     flipVertical: 1
   - streamName: back
     camera: {fileID: 668146048}
-    width: 1280
-    height: 720
+    width: 512
+    height: 512
     fps: 20
     bitrateKbps: 4000
     flipVertical: 1
   - streamName: left
     camera: {fileID: 1193591769}
-    width: 1280
-    height: 720
+    width: 512
+    height: 512
     fps: 20
     bitrateKbps: 4000
     flipVertical: 1
   - streamName: right
     camera: {fileID: 751538178}
-    width: 1280
-    height: 720
+    width: 512
+    height: 512
     fps: 20
     bitrateKbps: 4000
     flipVertical: 1
   forceEncoder: 
+  logStreamingDebug: 1
+  debugLogIntervalSec: 15
 --- !u!1001 &1117231383
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -21711,7 +21732,7 @@ PrefabInstance:
     - target: {fileID: 3596391855334024965, guid: 78009cb4c460e41b38682ae4c8daf831,
         type: 3}
       propertyPath: waterOffset
-      value: 0.4
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 5598360444790488938, guid: 78009cb4c460e41b38682ae4c8daf831,
         type: 3}
@@ -26658,7 +26679,7 @@ MonoBehaviour:
   m_RenderShadows: 1
   m_RequiresDepthTextureOption: 2
   m_RequiresOpaqueTextureOption: 2
-  m_CameraType: 1
+  m_CameraType: 0
   m_Cameras: []
   m_RendererIndex: -1
   m_VolumeLayerMask:
@@ -26696,7 +26717,7 @@ Camera:
   m_GameObject: {fileID: 1193591765}
   m_Enabled: 1
   serializedVersion: 2
-  m_ClearFlags: 4
+  m_ClearFlags: 1
   m_BackGroundColor: {r: 0.740566, g: 0.9904304, b: 1, a: 0}
   m_projectionMatrixMode: 1
   m_GateFitMode: 2
@@ -37048,7 +37069,7 @@ PrefabInstance:
     - target: {fileID: 3596391855334024965, guid: 78009cb4c460e41b38682ae4c8daf831,
         type: 3}
       propertyPath: waterOffset
-      value: 0.4
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 5598360444790488938, guid: 78009cb4c460e41b38682ae4c8daf831,
         type: 3}
@@ -37422,7 +37443,7 @@ MonoBehaviour:
   vehicle: {fileID: 1589415832}
   boatRigidbody: {fileID: 1589415828}
   imuMount: {fileID: 1461065171}
-  updateRateHz: 200
+  updateRateHz: 50
   enableRawOutput: 1
   enableAttitudeOutput: 1
   gyroNoiseStdDev: {x: 0.01, y: 0.01, z: 0.01}
@@ -37433,6 +37454,8 @@ MonoBehaviour:
   magBias: {x: 0, y: 0, z: 0}
   biasDriftRate: 0.0001
   earthMagneticField: {x: 0, y: 0, z: -50000}
+  logImuDebug: 1
+  debugLogIntervalSec: 100
 --- !u!114 &1589415834
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -37448,7 +37471,7 @@ MonoBehaviour:
   vehicle: {fileID: 1589415832}
   boatRigidbody: {fileID: 1589415828}
   radarMount: {fileID: 1461065171}
-  updateRateHz: 20
+  updateRateHz: 15
   azimuthResolutionDeg: 1
   maxRangeM: 200
   azimuthFovDeg: 120
@@ -37480,7 +37503,7 @@ MonoBehaviour:
   boatRigidbody: {fileID: 1589415828}
   gpsLocalOrigin: {x: 44.637424, y: -63.56362}
   maxSteerDeg: 60
-  updateRateHz: 20
+  updateRateHz: 6
   controlTimeoutSeconds: 1.5
 --- !u!1 &1601971930
 GameObject:
@@ -37500,7 +37523,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &1601971931
 Transform:
   m_ObjectHideFlags: 0
@@ -37788,6 +37811,7 @@ MonoBehaviour:
   m_VerticalAlignment: 256
   m_textAlignment: 65535
   m_characterSpacing: 0
+  m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
   m_lineSpacingMax: 0
@@ -38308,7 +38332,7 @@ PrefabInstance:
     - target: {fileID: 3596391855334024965, guid: 78009cb4c460e41b38682ae4c8daf831,
         type: 3}
       propertyPath: waterOffset
-      value: 0.4
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 5598360444790488938, guid: 78009cb4c460e41b38682ae4c8daf831,
         type: 3}
@@ -75135,6 +75159,8 @@ MonoBehaviour:
   magBias: {x: 0, y: 0, z: 0}
   biasDriftRate: 0.0001
   earthMagneticField: {x: 0, y: 0, z: -50000}
+  logImuDebug: 0
+  debugLogIntervalSec: 1
 --- !u!114 &9085274039837570409
 MonoBehaviour:
   m_ObjectHideFlags: 0
