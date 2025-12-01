@@ -19,8 +19,12 @@ namespace Nami
         public Rigidbody boatRigidbody;
         [Tooltip("Optional: Radar mounting transform. If null, uses this transform.")]
         public Transform radarMount;
+        [Tooltip("If true, reverses the radar forward direction (uses -Z instead of +Z)")]
+        public bool reverseDirection = false;
 
         [Header("Radar Settings")]
+        [Tooltip("Unique radar ID to identify this radar in UDP messages (e.g., 'front', 'back', max 16 chars)")]
+        public string radarId = "radar";
         [Range(10, 30)] public int updateRateHz = 20;
         [Range(0.5f, 2.0f)] public float azimuthResolutionDeg = 1.0f;
         [Range(50f, 500f)] public float maxRangeM = 200f;
@@ -49,9 +53,27 @@ namespace Nami
         [Tooltip("Antenna gain pattern: 1.0 = uniform, higher = more directional")]
         [Range(0.5f, 2.0f)] public float antennaGain = 1.0f;
 
+        [Header("Debug")]
+        [Tooltip("Log radar TX status periodically")]
+        public bool logRadarDebug = true;
+        [Tooltip("Seconds between radar debug logs")]
+        public float radarDebugIntervalSec = 5.0f;
+        [Tooltip("If true, send raw detections without CFAR filtering (for debugging)")]
+        public bool bypassCFAR = false;
+        [Tooltip("If true, log raw/filtered detection counts")]
+        public bool logDetectionCounts = true;
+        [Tooltip("Seconds between detection count debug logs")]
+        public float detectionLogIntervalSec = 2.0f;
+
         private UdpClient _tx;
         private IPEndPoint _telemetryEp;
         private CancellationTokenSource _cts;
+
+        // Debug / stats
+        private long _totalMessagesSent = 0;
+        private long _totalDetectionsSent = 0;
+        private float _nextDebugLogTime = 0f;
+        private float _nextDetectionLogTime = 0f;
 
         // Message type header (4 bytes)
         private static readonly byte[] MSG_RADAR = { (byte)'R', (byte)'A', (byte)'D', (byte)'R' };
@@ -92,7 +114,7 @@ namespace Nami
                 _rayDirectionsDirty = true;
                 _ = RunTxLoop(_cts.Token);
                 
-                Debug.Log($"[RadarSimulator] Started: telemetry={UdpPublisher.TelemetryMulticastAddress}:{UdpPublisher.TelemetryPort}, rate={updateRateHz}Hz");
+                Debug.Log($"[RadarSimulator] Started: id={radarId}, telemetry={UdpPublisher.TelemetryMulticastAddress}:{UdpPublisher.TelemetryPort}, rate={updateRateHz}Hz");
             }
             catch (Exception e)
             {
@@ -150,9 +172,21 @@ namespace Nami
 
             // Perform raycasts
             var detections = PerformRaycasts();
+            var rawCount = detections.Count;
 
-            // Apply CFAR thresholding
-            var filteredDetections = ApplyCFAR(detections);
+            // Apply CFAR thresholding (unless bypassed)
+            var filteredDetections = bypassCFAR ? detections : ApplyCFAR(detections);
+            var filteredCount = filteredDetections.Count;
+
+            if (logDetectionCounts)
+            {
+                var now = Time.time;
+                if (now >= _nextDetectionLogTime)
+                {
+                    _nextDetectionLogTime = now + Mathf.Max(0.1f, detectionLogIntervalSec);
+                    Debug.Log($"[RadarSimulator] detections: id={radarId}, raw={rawCount}, filtered={filteredCount}, maxRange={maxRangeM}, fovDeg={azimuthFovDeg}");
+                }
+            }
 
             // Send detections over UDP
             SendDetectionMessage(filteredDetections);
@@ -220,6 +254,11 @@ namespace Nami
             for (int i = 0; i < _rayDirections.Count; i++)
             {
                 var localDir = _rayDirections[i];
+                // Reverse Z direction if needed
+                if (reverseDirection)
+                {
+                    localDir = new Vector3(localDir.x, localDir.y, -localDir.z);
+                }
                 var worldDir = radarRot * localDir;
                 commands[i] = new RaycastCommand(radarPos, worldDir, maxRangeM)
                 {
@@ -386,11 +425,11 @@ namespace Nami
 
         private void SendDetectionMessage(List<RadarDetection> detections)
         {
-            // Message format: [4-byte header][8-byte timestamp][2-byte count][N*20-byte detections]
+            // Message format: [4-byte header][16-byte radar ID string][8-byte timestamp][2-byte count][N*20-byte detections]
             // Detection: range(float), azimuth(float), elevation(float), doppler(float), power(float) = 20 bytes
             var timestamp = (long)(Time.time * 1000000); // Unix microseconds
             var count = (ushort)Mathf.Min(detections.Count, 65535);
-            var messageSize = 14 + (count * 20);
+            var messageSize = 30 + (count * 20);
             var buffer = ArrayPool<byte>.Shared.Rent(messageSize);
             try
             {
@@ -399,6 +438,17 @@ namespace Nami
                 // Header
                 Array.Copy(MSG_RADAR, 0, buffer, offset, 4);
                 offset += 4;
+
+                // Radar ID (16 bytes, UTF-8 encoded, null-padded)
+                var idBytes = System.Text.Encoding.UTF8.GetBytes(radarId ?? "radar");
+                var idLen = Mathf.Min(idBytes.Length, 16);
+                Array.Copy(idBytes, 0, buffer, offset, idLen);
+                // Zero-fill remaining bytes
+                for (int i = idLen; i < 16; i++)
+                {
+                    buffer[offset + i] = 0;
+                }
+                offset += 16;
 
                 // Timestamp (8 bytes, big-endian)
                 EndianBitConverter.WriteInt64BE(buffer, offset, timestamp);
@@ -420,6 +470,20 @@ namespace Nami
                 }
 
                 SendFrame(buffer, messageSize);
+
+                // Update stats and emit throttled debug log
+                _totalMessagesSent++;
+                _totalDetectionsSent += count;
+
+                if (logRadarDebug)
+                {
+                    var now = Time.time;
+                    if (now >= _nextDebugLogTime)
+                    {
+                        _nextDebugLogTime = now + Mathf.Max(0.1f, radarDebugIntervalSec);
+                        Debug.Log($"[RadarSimulator] TX radar: id={radarId}, ts_us={timestamp}, detections_in_msg={count}, total_msgs={_totalMessagesSent}, total_points={_totalDetectionsSent}");
+                    }
+                }
             }
             finally
             {
@@ -453,7 +517,8 @@ namespace Nami
 
             // Draw FOV cone
             var fovRad = azimuthFovDeg * 0.5f * Mathf.Deg2Rad;
-            var forward = rot * Vector3.forward;
+            var forwardDir = reverseDirection ? Vector3.back : Vector3.forward;
+            var forward = rot * forwardDir;
             var right = rot * Vector3.right;
             var up = rot * Vector3.up;
 
@@ -461,8 +526,9 @@ namespace Nami
             Gizmos.DrawRay(pos, forward * maxRangeM * 0.1f);
 
             // Draw FOV boundaries
-            var leftBound = rot * new Vector3(Mathf.Sin(-fovRad), 0, Mathf.Cos(-fovRad));
-            var rightBound = rot * new Vector3(Mathf.Sin(fovRad), 0, Mathf.Cos(fovRad));
+            var zSign = reverseDirection ? -1f : 1f;
+            var leftBound = rot * new Vector3(Mathf.Sin(-fovRad), 0, Mathf.Cos(-fovRad) * zSign);
+            var rightBound = rot * new Vector3(Mathf.Sin(fovRad), 0, Mathf.Cos(fovRad) * zSign);
             Gizmos.DrawRay(pos, leftBound * maxRangeM);
             Gizmos.DrawRay(pos, rightBound * maxRangeM);
         }
