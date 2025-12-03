@@ -19,8 +19,6 @@ namespace Nami
         public Rigidbody boatRigidbody;
         [Tooltip("Optional: Radar mounting transform. If null, uses this transform.")]
         public Transform radarMount;
-        [Tooltip("If true, reverses the radar forward direction (uses -Z instead of +Z)")]
-        public bool reverseDirection = false;
 
         [Header("Radar Settings")]
         [Tooltip("Unique radar ID to identify this radar in UDP messages (e.g., 'front', 'back', max 16 chars)")]
@@ -245,11 +243,6 @@ namespace Nami
             for (int i = 0; i < _rayDirections.Count; i++)
             {
                 var localDir = _rayDirections[i];
-                // Apply 180° yaw (flip X and Z) if needed
-                if (reverseDirection)
-                {
-                    localDir = new Vector3(-localDir.x, localDir.y, -localDir.z);
-                }
                 var worldDir = radarRot * localDir;
                 commands[i] = new RaycastCommand(radarPos, worldDir, maxRangeM)
                 {
@@ -269,11 +262,6 @@ namespace Nami
 
                 var range = hit.distance;
                 var localDir = _rayDirections[i];
-                // Keep azimuth/elevation consistent with actual ray direction
-                if (reverseDirection)
-                {
-                    localDir = new Vector3(-localDir.x, localDir.y, -localDir.z);
-                }
                 var worldDir = radarRot * localDir;
 
                 // Compute azimuth and elevation from local direction
@@ -510,22 +498,16 @@ namespace Nami
 
             // Draw FOV cone
             var fovRad = azimuthFovDeg * 0.5f * Mathf.Deg2Rad;
-            var forwardDir = reverseDirection ? Vector3.back : Vector3.forward;
-            var forward = rot * forwardDir;
+            var forward = rot * Vector3.forward;
             var right = rot * Vector3.right;
             var up = rot * Vector3.up;
 
             // Draw forward direction
             Gizmos.DrawRay(pos, forward * maxRangeM * 0.1f);
 
-            // Draw FOV boundaries (honor 180° yaw flip when reverseDirection is true)
+            // Draw FOV boundaries
             var leftLocal = new Vector3(Mathf.Sin(-fovRad), 0, Mathf.Cos(-fovRad));
             var rightLocal = new Vector3(Mathf.Sin(fovRad), 0, Mathf.Cos(fovRad));
-            if (reverseDirection)
-            {
-                leftLocal = new Vector3(-leftLocal.x, 0, -leftLocal.z);
-                rightLocal = new Vector3(-rightLocal.x, 0, -rightLocal.z);
-            }
             var leftBound = rot * leftLocal;
             var rightBound = rot * rightLocal;
             Gizmos.DrawRay(pos, leftBound * maxRangeM);
