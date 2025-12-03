@@ -21640,7 +21640,7 @@ MonoBehaviour:
     flipVertical: 1
   forceEncoder: 
   logStreamingDebug: 1
-  debugLogIntervalSec: 15
+  debugLogIntervalSec: 300
 --- !u!1001 &1117231383
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -31695,7 +31695,11 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 1034065356363976, guid: a8cf78d9746e449f69179132e78d867f,
+        type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 2067291356}
   m_SourcePrefab: {fileID: 100100000, guid: a8cf78d9746e449f69179132e78d867f, type: 3}
 --- !u!1 &1331251185
 GameObject:
@@ -37488,6 +37492,7 @@ MonoBehaviour:
   boatRigidbody: {fileID: 1589415828}
   radarMount: {fileID: 9085274039837570401}
   reverseDirection: 1
+  radarId: 
   updateRateHz: 15
   azimuthResolutionDeg: 1
   maxRangeM: 200
@@ -37504,11 +37509,8 @@ MonoBehaviour:
   cfarGuardCells: 2
   cfarTrainingCells: 10
   antennaGain: 1
-  logRadarDebug: 1
-  radarDebugIntervalSec: 5
+  logIntervalSec: 2
   bypassCFAR: 0
-  logDetectionCounts: 1
-  detectionLogIntervalSec: 2
 --- !u!114 &1589415835
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -38249,7 +38251,11 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 1034065356363976, guid: a8cf78d9746e449f69179132e78d867f,
+        type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 2101219063}
   m_SourcePrefab: {fileID: 100100000, guid: a8cf78d9746e449f69179132e78d867f, type: 3}
 --- !u!1 &1925550525 stripped
 GameObject:
@@ -38279,6 +38285,33 @@ MeshCollider:
   m_Convex: 1
   m_CookingOptions: 30
   m_Mesh: {fileID: -2432090755550338912, guid: d76b6c13cdd8546eea61b4ca3b759b37, type: 3}
+--- !u!1 &2067291352 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 1034065356363976, guid: a8cf78d9746e449f69179132e78d867f,
+    type: 3}
+  m_PrefabInstance: {fileID: 1325325894}
+  m_PrefabAsset: {fileID: 0}
+--- !u!65 &2067291356
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2067291352}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 4.0519385, y: 0.53897095, z: 1.093652}
+  m_Center: {x: 9.450596e-10, y: 0.20295, z: -0.022000043}
 --- !u!1001 &2081705999
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -38388,6 +38421,33 @@ Transform:
     type: 3}
   m_PrefabInstance: {fileID: 2081705999}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &2101219059 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 1034065356363976, guid: a8cf78d9746e449f69179132e78d867f,
+    type: 3}
+  m_PrefabInstance: {fileID: 1917392850}
+  m_PrefabAsset: {fileID: 0}
+--- !u!65 &2101219063
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2101219059}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 4.051938, y: 0.5389709, z: 1.0936519}
+  m_Center: {x: 0.00000023872573, y: 0.20295, z: -0.022000043}
 --- !u!1 &2122370061
 GameObject:
   m_ObjectHideFlags: 0
@@ -74225,7 +74285,7 @@ PrefabInstance:
     - target: {fileID: 3193471337630893609, guid: e70416e3bc35d4004a9981d0ac102ba5,
         type: 3}
       propertyPath: m_Splines.Array.data[0].m_Knots.Array.data[7].Rotation.value.y
-      value: -0.45847225
+      value: -0.45847228
       objectReference: {fileID: 0}
     - target: {fileID: 3193471337630893609, guid: e70416e3bc35d4004a9981d0ac102ba5,
         type: 3}
@@ -75143,7 +75203,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 9085274039837570407}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: 0, y: 1, z: 0, w: 0}
   m_LocalPosition: {x: 0.051, y: 2.36, z: -0.18}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
@@ -75152,7 +75212,7 @@ Transform:
   - {fileID: 106041736}
   - {fileID: 1767544994}
   m_Father: {fileID: 1589415829}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 180, z: 0}
 --- !u!1 &9085274039837570407
 GameObject:
   m_ObjectHideFlags: 0
@@ -75214,13 +75274,14 @@ MonoBehaviour:
   vehicle: {fileID: 1589415832}
   boatRigidbody: {fileID: 1589415828}
   radarMount: {fileID: 1589415829}
-  reverseDirection: 1
+  reverseDirection: 0
+  radarId: front
   updateRateHz: 20
   azimuthResolutionDeg: 1
-  maxRangeM: 200
-  azimuthFovDeg: 120
-  minElevationDeg: -5
-  maxElevationDeg: 5
+  maxRangeM: 100
+  azimuthFovDeg: 90
+  minElevationDeg: -20
+  maxElevationDeg: 20
   elevationBeamwidthDeg: 5
   raycastLayers:
     serializedVersion: 2
@@ -75231,11 +75292,8 @@ MonoBehaviour:
   cfarGuardCells: 2
   cfarTrainingCells: 10
   antennaGain: 1
-  logRadarDebug: 1
-  radarDebugIntervalSec: 5
-  bypassCFAR: 0
-  logDetectionCounts: 1
-  detectionLogIntervalSec: 2
+  logIntervalSec: 20
+  bypassCFAR: 1
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

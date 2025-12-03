@@ -54,16 +54,10 @@ namespace Nami
         [Range(0.5f, 2.0f)] public float antennaGain = 1.0f;
 
         [Header("Debug")]
-        [Tooltip("Log radar TX status periodically")]
-        public bool logRadarDebug = true;
-        [Tooltip("Seconds between radar debug logs")]
-        public float radarDebugIntervalSec = 5.0f;
+        [Tooltip("Seconds between debug log messages (applies to all radar logs)")]
+        public float logIntervalSec = 20.0f;
         [Tooltip("If true, send raw detections without CFAR filtering (for debugging)")]
         public bool bypassCFAR = false;
-        [Tooltip("If true, log raw/filtered detection counts")]
-        public bool logDetectionCounts = true;
-        [Tooltip("Seconds between detection count debug logs")]
-        public float detectionLogIntervalSec = 2.0f;
 
         private UdpClient _tx;
         private IPEndPoint _telemetryEp;
@@ -178,14 +172,11 @@ namespace Nami
             var filteredDetections = bypassCFAR ? detections : ApplyCFAR(detections);
             var filteredCount = filteredDetections.Count;
 
-            if (logDetectionCounts)
+            var now = Time.time;
+            if (now >= _nextDetectionLogTime)
             {
-                var now = Time.time;
-                if (now >= _nextDetectionLogTime)
-                {
-                    _nextDetectionLogTime = now + Mathf.Max(0.1f, detectionLogIntervalSec);
-                    Debug.Log($"[RadarSimulator] detections: id={radarId}, raw={rawCount}, filtered={filteredCount}, maxRange={maxRangeM}, fovDeg={azimuthFovDeg}");
-                }
+                _nextDetectionLogTime = now + Mathf.Max(0.1f, logIntervalSec);
+                Debug.Log($"[RadarSimulator] detections: id={radarId}, raw={rawCount}, filtered={filteredCount}, maxRange={maxRangeM}, fovDeg={azimuthFovDeg}");
             }
 
             // Send detections over UDP
@@ -254,10 +245,10 @@ namespace Nami
             for (int i = 0; i < _rayDirections.Count; i++)
             {
                 var localDir = _rayDirections[i];
-                // Reverse Z direction if needed
+                // Apply 180° yaw (flip X and Z) if needed
                 if (reverseDirection)
                 {
-                    localDir = new Vector3(localDir.x, localDir.y, -localDir.z);
+                    localDir = new Vector3(-localDir.x, localDir.y, -localDir.z);
                 }
                 var worldDir = radarRot * localDir;
                 commands[i] = new RaycastCommand(radarPos, worldDir, maxRangeM)
@@ -278,6 +269,11 @@ namespace Nami
 
                 var range = hit.distance;
                 var localDir = _rayDirections[i];
+                // Keep azimuth/elevation consistent with actual ray direction
+                if (reverseDirection)
+                {
+                    localDir = new Vector3(-localDir.x, localDir.y, -localDir.z);
+                }
                 var worldDir = radarRot * localDir;
 
                 // Compute azimuth and elevation from local direction
@@ -475,14 +471,11 @@ namespace Nami
                 _totalMessagesSent++;
                 _totalDetectionsSent += count;
 
-                if (logRadarDebug)
+                var now = Time.time;
+                if (now >= _nextDebugLogTime)
                 {
-                    var now = Time.time;
-                    if (now >= _nextDebugLogTime)
-                    {
-                        _nextDebugLogTime = now + Mathf.Max(0.1f, radarDebugIntervalSec);
-                        Debug.Log($"[RadarSimulator] TX radar: id={radarId}, ts_us={timestamp}, detections_in_msg={count}, total_msgs={_totalMessagesSent}, total_points={_totalDetectionsSent}");
-                    }
+                    _nextDebugLogTime = now + Mathf.Max(0.1f, logIntervalSec);
+                    Debug.Log($"[RadarSimulator] TX radar: id={radarId}, ts_us={timestamp}, detections_in_msg={count}, total_msgs={_totalMessagesSent}, total_points={_totalDetectionsSent}");
                 }
             }
             finally
@@ -525,10 +518,16 @@ namespace Nami
             // Draw forward direction
             Gizmos.DrawRay(pos, forward * maxRangeM * 0.1f);
 
-            // Draw FOV boundaries
-            var zSign = reverseDirection ? -1f : 1f;
-            var leftBound = rot * new Vector3(Mathf.Sin(-fovRad), 0, Mathf.Cos(-fovRad) * zSign);
-            var rightBound = rot * new Vector3(Mathf.Sin(fovRad), 0, Mathf.Cos(fovRad) * zSign);
+            // Draw FOV boundaries (honor 180° yaw flip when reverseDirection is true)
+            var leftLocal = new Vector3(Mathf.Sin(-fovRad), 0, Mathf.Cos(-fovRad));
+            var rightLocal = new Vector3(Mathf.Sin(fovRad), 0, Mathf.Cos(fovRad));
+            if (reverseDirection)
+            {
+                leftLocal = new Vector3(-leftLocal.x, 0, -leftLocal.z);
+                rightLocal = new Vector3(-rightLocal.x, 0, -rightLocal.z);
+            }
+            var leftBound = rot * leftLocal;
+            var rightBound = rot * rightLocal;
             Gizmos.DrawRay(pos, leftBound * maxRangeM);
             Gizmos.DrawRay(pos, rightBound * maxRangeM);
         }
