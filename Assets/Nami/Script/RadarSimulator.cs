@@ -66,6 +66,7 @@ namespace Nami
         private long _totalDetectionsSent = 0;
         private float _nextDebugLogTime = 0f;
         private float _nextDetectionLogTime = 0f;
+        private uint _frameCounter = 0;
 
         // Message type header (4 bytes)
         private static readonly byte[] MSG_RADAR = { (byte)'R', (byte)'A', (byte)'D', (byte)'R' };
@@ -409,17 +410,61 @@ namespace Nami
 
         private void SendDetectionMessage(List<RadarDetection> detections)
         {
-            // Message format: [4-byte header][16-byte radar ID string][8-byte timestamp][2-byte count][N*20-byte detections]
+            // Message format (TI mmWave-style):
+            // [4-byte header][16-byte radar ID][4-byte frame_id][8-byte timestamp][2-byte packet_seq][2-byte total_packets][2-byte count][N*20-byte detections]
             // Detection: range(float), azimuth(float), elevation(float), doppler(float), power(float) = 20 bytes
+            
+            // Maximum safe UDP payload: 1400 bytes (conservative, leaves room for IP/UDP headers)
+            // Header + ID + frame_id + timestamp + seq + total + count = 38 bytes
+            // Max detections per packet: (1400 - 38) / 20 = 68 detections
+            const int MAX_DETECTIONS_PER_PACKET = 68;
+            
+            var frameId = _frameCounter++;
             var timestamp = (long)(Time.time * 1000000); // Unix microseconds
-            var count = (ushort)Mathf.Min(detections.Count, 65535);
-            var messageSize = 30 + (count * 20);
+            var totalDetections = detections.Count;
+            
+            if (totalDetections == 0)
+            {
+                // Send empty message
+                SendDetectionPacket(detections, 0, 0, frameId, timestamp, 0, 1);
+                return;
+            }
+            
+            // Split detections into chunks
+            int totalPackets = Mathf.CeilToInt((float)totalDetections / MAX_DETECTIONS_PER_PACKET);
+            int offset = 0;
+            
+            for (int packetIdx = 0; packetIdx < totalPackets; packetIdx++)
+            {
+                int remainingDetections = totalDetections - offset;
+                int detectionsInThisPacket = Mathf.Min(remainingDetections, MAX_DETECTIONS_PER_PACKET);
+                
+                SendDetectionPacket(detections, offset, detectionsInThisPacket, frameId, timestamp, packetIdx, totalPackets);
+                
+                offset += detectionsInThisPacket;
+            }
+            
+            // Update stats and emit throttled debug log
+            _totalMessagesSent += totalPackets;
+            _totalDetectionsSent += totalDetections;
+            
+            var now = Time.time;
+            if (now >= _nextDebugLogTime)
+            {
+                _nextDebugLogTime = now + Mathf.Max(0.1f, logIntervalSec);
+                Debug.Log($"[RadarSimulator] TX radar: id={radarId}, frame={frameId}, ts_us={timestamp}, detections={totalDetections}, packets={totalPackets}, total_msgs={_totalMessagesSent}, total_points={_totalDetectionsSent}");
+            }
+        }
+        
+        private void SendDetectionPacket(List<RadarDetection> detections, int startIdx, int count, uint frameId, long timestamp, int packetSeq, int totalPackets)
+        {
+            var messageSize = 38 + (count * 20);
             var buffer = ArrayPool<byte>.Shared.Rent(messageSize);
             try
             {
                 int offset = 0;
 
-                // Header
+                // Header (4 bytes: 'RADR')
                 Array.Copy(MSG_RADAR, 0, buffer, offset, 4);
                 offset += 4;
 
@@ -434,18 +479,30 @@ namespace Nami
                 }
                 offset += 16;
 
+                // Frame ID (4 bytes, big-endian) - monotonic counter
+                EndianBitConverter.WriteUInt32BE(buffer, offset, frameId);
+                offset += 4;
+
                 // Timestamp (8 bytes, big-endian)
                 EndianBitConverter.WriteInt64BE(buffer, offset, timestamp);
                 offset += 8;
 
-                // Detection count (2 bytes, big-endian)
-                EndianBitConverter.WriteUInt16BE(buffer, offset, count);
+                // Packet sequence number (2 bytes, big-endian) - 0-indexed
+                EndianBitConverter.WriteUInt16BE(buffer, offset, (ushort)packetSeq);
+                offset += 2;
+
+                // Total packets in this scan (2 bytes, big-endian)
+                EndianBitConverter.WriteUInt16BE(buffer, offset, (ushort)totalPackets);
+                offset += 2;
+
+                // Detection count in THIS packet (2 bytes, big-endian)
+                EndianBitConverter.WriteUInt16BE(buffer, offset, (ushort)count);
                 offset += 2;
 
                 // Detections (20 bytes each: range, azimuth, elevation, doppler, power)
                 for (int i = 0; i < count; i++)
                 {
-                    var det = detections[i];
+                    var det = detections[startIdx + i];
                     EndianBitConverter.WriteFloatBE(buffer, offset, det.range); offset += 4;
                     EndianBitConverter.WriteFloatBE(buffer, offset, det.azimuth); offset += 4;
                     EndianBitConverter.WriteFloatBE(buffer, offset, det.elevation); offset += 4;
@@ -454,17 +511,6 @@ namespace Nami
                 }
 
                 SendFrame(buffer, messageSize);
-
-                // Update stats and emit throttled debug log
-                _totalMessagesSent++;
-                _totalDetectionsSent += count;
-
-                var now = Time.time;
-                if (now >= _nextDebugLogTime)
-                {
-                    _nextDebugLogTime = now + Mathf.Max(0.1f, logIntervalSec);
-                    Debug.Log($"[RadarSimulator] TX radar: id={radarId}, ts_us={timestamp}, detections_in_msg={count}, total_msgs={_totalMessagesSent}, total_points={_totalDetectionsSent}");
-                }
             }
             finally
             {

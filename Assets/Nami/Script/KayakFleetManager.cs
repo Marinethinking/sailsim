@@ -57,10 +57,10 @@ public class KayakFleetManager : MonoBehaviour
     public float mass = 100f;
 
     [Tooltip("Drag (water resistance)")]
-    public float drag = 1f;
+    public float drag = 0.5f;
 
     [Tooltip("Angular drag (rotation resistance)")]
-    public float angularDrag = 2f;
+    public float angularDrag = 1f;
 
     [Header("Spawn Settings")]
     [Tooltip("Y position (height) for spawned kayaks")]
@@ -110,7 +110,13 @@ public class KayakFleetManager : MonoBehaviour
             // Spawn kayak
             GameObject kayak = Instantiate(kayakPrefab, spawnPos, Quaternion.Euler(0f, Random.Range(0f, 360f), 0f));
             kayak.name = $"Kayak_{i + 1}";
-            kayak.transform.parent = transform; // Parent to fleet manager for organization
+            
+            // Only parent to fleet manager if NOT using physics
+            // Parenting non-kinematic Rigidbodies can interfere with physics movement
+            if (!usePhysics)
+            {
+                kayak.transform.parent = transform;
+            }
 
             // Apply random scale
             float randomScale = Random.Range(minScale, maxScale);

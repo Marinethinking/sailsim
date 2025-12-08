@@ -5273,7 +5273,7 @@ MonoBehaviour:
   areaSize: {x: 150, y: 150}
   movementMode: 1
   modelForwardAxis: 1
-  baseSpeed: 1
+  baseSpeed: 10
   speedVariation: 1
   baseTurnSpeed: 2
   turnSpeedVariation: 0.5
@@ -74445,7 +74445,7 @@ PrefabInstance:
     - target: {fileID: 3193471337630893609, guid: e70416e3bc35d4004a9981d0ac102ba5,
         type: 3}
       propertyPath: m_Splines.Array.data[0].m_Knots.Array.data[7].Rotation.value.y
-      value: -0.45847228
+      value: -0.45847225
       objectReference: {fileID: 0}
     - target: {fileID: 3193471337630893609, guid: e70416e3bc35d4004a9981d0ac102ba5,
         type: 3}

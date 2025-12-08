@@ -35,10 +35,10 @@ public class KayakMover : MonoBehaviour
     public float mass = 100f;
 
     [Tooltip("Drag (water resistance) - higher = slower deceleration")]
-    public float drag = 1f;
+    public float drag = 0.5f;
 
     [Tooltip("Angular drag (rotation resistance)")]
-    public float angularDrag = 2f;
+    public float angularDrag = 1f;
 
     [Header("Movement Area (X/Z)")]
     [Tooltip("World-space center of the movement area (X, Z)")]
@@ -254,9 +254,9 @@ public class KayakMover : MonoBehaviour
             ApplyRotation(turnDirection, Time.fixedDeltaTime, true);
         }
 
-        // Apply forward force
+        // Apply forward acceleration (ignores mass for consistent speed control)
         Vector3 forwardDir = GetModelForward();
-        _rb.AddForce(forwardDir * speed, ForceMode.Force);
+        _rb.AddForce(forwardDir * speed, ForceMode.Acceleration);
 
         // Clamp position to area bounds
         float minX = areaCenter.x - areaSize.x * 0.5f;
@@ -294,8 +294,8 @@ public class KayakMover : MonoBehaviour
         // Turn toward target
         ApplyRotation(direction, Time.fixedDeltaTime, true);
 
-        // Apply forward force
-        _rb.AddForce(GetModelForward() * speed, ForceMode.Force);
+        // Apply forward acceleration (ignores mass for consistent speed control)
+        _rb.AddForce(GetModelForward() * speed, ForceMode.Acceleration);
     }
 
     /// <summary>
