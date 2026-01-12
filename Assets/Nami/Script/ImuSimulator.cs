@@ -47,7 +47,7 @@ namespace Nami
         [Tooltip("Print periodic IMU debug lines to the Unity Console.")]
         public bool logImuDebug = false;
         [Tooltip("Seconds between IMU debug logs when enabled.")]
-        public float debugLogIntervalSec = 100.0f;
+        public float debugLogIntervalSec = 20.0f;
 
         private UdpClient _tx;
         private IPEndPoint _telemetryEp;
@@ -202,8 +202,9 @@ namespace Nami
             if (logImuDebug && currentTime >= _nextDebugLogTime)
             {
                 _nextDebugLogTime = currentTime + Mathf.Max(0.1f, debugLogIntervalSec);
+                
                 Debug.Log(
-                    $"[ImuSimulator] t={currentTime:F3}s " +
+                    $"[ImuSimulator] '{imuMount.name}' Sensor Data:\n" +
                     $"gyro=({gyro.x:F3},{gyro.y:F3},{gyro.z:F3}) rad/s " +
                     $"accel=({accel.x:F2},{accel.y:F2},{accel.z:F2}) m/s^2 " +
                     $"mag=({mag.x:F1},{mag.y:F1},{mag.z:F1}) µT");

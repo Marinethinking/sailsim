@@ -12,21 +12,14 @@ using UnityEngine;
 namespace Nami
 {
     /// <summary>
-    /// A multi-sensor simulator that manages multiple radars and IMUs from a single component.
-    /// This allows all sensors to share parameters for easy tuning while maintaining individual IDs and mounts.
+    /// A multi-radar simulator that manages multiple radars from a single component.
+    /// This allows all radars to share parameters for easy tuning while maintaining individual IDs and mounts.
     /// </summary>
     [DisallowMultipleComponent]
     public class SensorArraySimulator : MonoBehaviour
     {
         [Serializable]
         public struct RadarMount
-        {
-            public string id;
-            public Transform mount;
-        }
-
-        [Serializable]
-        public struct ImuMount
         {
             public string id;
             public Transform mount;
@@ -39,8 +32,6 @@ namespace Nami
         [Header("Sensor Array")]
         [Tooltip("List of radar mounts and their unique IDs.")]
         public List<RadarMount> radars = new List<RadarMount>();
-        [Tooltip("List of IMU mounts and their unique IDs.")]
-        public List<ImuMount> imus = new List<ImuMount>();
 
         [Header("Radar Settings (Shared)")]
         [Range(10, 30)] public int radarUpdateRateHz = 20;
@@ -69,66 +60,22 @@ namespace Nami
         [Tooltip("Antenna gain pattern: 1.0 = uniform, higher = more directional")]
         [Range(0.5f, 2.0f)] public float antennaGain = 1.0f;
 
-        [Header("IMU Settings (Shared)")]
-        [Range(50, 400)] public int imuUpdateRateHz = 200;
-        [Tooltip("Enable raw sensor output (gyro/accel/mag)")]
-        public bool enableRawOutput = true;
-        [Tooltip("Enable fused attitude output (roll/pitch/yaw)")]
-        public bool enableAttitudeOutput = true;
-
-        [Header("IMU Noise (Shared)")]
-        [Tooltip("Gyroscope noise standard deviation (rad/s per axis)")]
-        public Vector3 gyroNoiseStdDev = new Vector3(0.01f, 0.01f, 0.01f);
-        [Tooltip("Accelerometer noise standard deviation (m/s² per axis)")]
-        public Vector3 accelNoiseStdDev = new Vector3(0.1f, 0.1f, 0.1f);
-        [Tooltip("Magnetometer noise standard deviation (µT per axis)")]
-        public Vector3 magNoiseStdDev = new Vector3(0.1f, 0.1f, 0.1f);
-        [Tooltip("Gyroscope bias (rad/s per axis). Bias drift is simulated as slow random walk.")]
-        public Vector3 gyroBias = Vector3.zero;
-        [Tooltip("Accelerometer bias (m/s² per axis)")]
-        public Vector3 accelBias = Vector3.zero;
-        [Tooltip("Magnetometer bias (µT per axis)")]
-        public Vector3 magBias = Vector3.zero;
-        [Tooltip("Bias drift rate (how fast bias changes, 0-1)")]
-        [Range(0f, 1f)] public float biasDriftRate = 0.0001f;
-        [Tooltip("Earth magnetic field vector in world frame (µT).")]
-        public Vector3 earthMagneticField = new Vector3(0, 0, -50000f);
-
         [Header("Debug")]
         [Tooltip("Seconds between debug log messages")]
         public float logIntervalSec = 20.0f;
         [Tooltip("If true, send raw detections without CFAR filtering")]
         public bool bypassCFAR = false;
-        [Tooltip("Print periodic IMU debug lines to the Unity Console.")]
-        public bool logImuDebug = false;
 
         private UdpClient _tx;
         private IPEndPoint _telemetryEp;
         private CancellationTokenSource _cts;
 
-        // Message type headers
         private static readonly byte[] MSG_RADAR = { (byte)'R', (byte)'A', (byte)'D', (byte)'R' };
-        private static readonly byte[] MSG_IMU_RAW = { (byte)'I', (byte)'M', (byte)'U', (byte)'R' };
-        private static readonly byte[] MSG_IMU_ATT = { (byte)'I', (byte)'M', (byte)'U', (byte)'A' };
 
-        // Radar internal state
         private List<Vector3> _rayDirections = new List<Vector3>();
         private bool _rayDirectionsDirty = true;
         private uint _radarFrameCounter = 0;
         private float _nextRadarLogTime = 0f;
-
-        // IMU internal state
-        private struct ImuState
-        {
-            public Vector3 currentGyroBias;
-            public Vector3 currentAccelBias;
-            public Vector3 currentMagBias;
-            public Vector3 prevVelocity;
-            public float prevTime;
-            public byte[] rawBuffer;
-            public byte[] attBuffer;
-        }
-        private Dictionary<string, ImuState> _imuStates = new Dictionary<string, ImuState>();
 
         private struct RadarDetection
         {
@@ -149,19 +96,16 @@ namespace Nami
                     boatRigidbody = vehicle.engine != null ? vehicle.engine.RB : GetComponentInParent<Rigidbody>();
                 }
 
-                InitializeImuStates();
                 _rayDirectionsDirty = true;
                 _cts = new CancellationTokenSource();
                 SetupSockets();
 
                 _ = RunRadarLoop(_cts.Token);
-                _ = RunImuLoop(_cts.Token);
-
-                Debug.Log($"[SensorArraySimulator] Started with {radars.Count} radars and {imus.Count} IMUs.");
+                Debug.Log($"[SensorArraySimulator] Radar array started with {radars.Count} radars.");
             }
             catch (Exception e)
             {
-                Debug.LogError($"[SensorArraySimulator] Failed to start: {e.Message}\n{e.StackTrace}");
+                Debug.LogError($"[SensorArraySimulator] Failed to start: {e.Message}");
                 enabled = false;
             }
         }
@@ -177,25 +121,6 @@ namespace Nami
             _rayDirectionsDirty = true;
         }
 
-        private void InitializeImuStates()
-        {
-            _imuStates.Clear();
-            foreach (var imu in imus)
-            {
-                if (string.IsNullOrEmpty(imu.id)) continue;
-                _imuStates[imu.id] = new ImuState
-                {
-                    currentGyroBias = gyroBias,
-                    currentAccelBias = accelBias,
-                    currentMagBias = magBias,
-                    prevVelocity = boatRigidbody != null ? boatRigidbody.linearVelocity : Vector3.zero,
-                    prevTime = Time.time,
-                    rawBuffer = new byte[64], // Header(4) + ID(16) + TS(8) + Payload(36)
-                    attBuffer = new byte[40]  // Header(4) + ID(16) + TS(8) + Payload(12)
-                };
-            }
-        }
-
         private void SetupSockets()
         {
             _telemetryEp = UdpPublisher.TelemetryEndpoint;
@@ -209,17 +134,6 @@ namespace Nami
                 var period = Mathf.Max(1f / Mathf.Max(1, radarUpdateRateHz), 0.033f);
                 try { SendRadarData(); }
                 catch (Exception e) { Debug.LogError($"[SensorArraySimulator] Radar loop error: {e.Message}"); }
-                try { await Task.Delay(TimeSpan.FromSeconds(period), ct); } catch { break; }
-            }
-        }
-
-        private async Task RunImuLoop(CancellationToken ct)
-        {
-            while (!ct.IsCancellationRequested)
-            {
-                var period = Mathf.Max(1f / Mathf.Max(1, imuUpdateRateHz), 0.0025f);
-                try { SendImuData(); }
-                catch (Exception e) { Debug.LogError($"[SensorArraySimulator] IMU loop error: {e.Message}"); }
                 try { await Task.Delay(TimeSpan.FromSeconds(period), ct); } catch { break; }
             }
         }
@@ -241,7 +155,6 @@ namespace Nami
             var commands = new NativeArray<RaycastCommand>(totalRays, Allocator.TempJob);
             var results = new NativeArray<RaycastHit>(totalRays, Allocator.TempJob);
 
-            // Prepare batched raycasts for all radars
             for (int r = 0; r < radars.Count; r++)
             {
                 var mount = radars[r].mount;
@@ -259,14 +172,12 @@ namespace Nami
                 }
             }
 
-            // Schedule and wait for all raycasts in one go
             RaycastCommand.ScheduleBatch(commands, results, 1).Complete();
 
             var radarVel = boatRigidbody.linearVelocity;
             var frameId = _radarFrameCounter++;
             var timestamp = (long)(Time.time * 1000000);
 
-            // Process results for each radar
             for (int r = 0; r < radars.Count; r++)
             {
                 var mount = radars[r].mount;
@@ -303,7 +214,6 @@ namespace Nami
             commands.Dispose();
             results.Dispose();
 
-            // Only update the timer AFTER all individual radar logs have had a chance to print
             if (Time.time >= _nextRadarLogTime)
             {
                 Debug.Log($"[SensorArraySimulator] Radar sweep complete for {radars.Count} radars.");
@@ -388,7 +298,6 @@ namespace Nami
             const int MAX_PER_PACKET = 68;
             int total = detections.Count;
 
-            // Throttled log for this specific radar
             if (Time.time >= _nextRadarLogTime)
             {
                 Debug.Log($"[SensorArraySimulator] Radar '{id}' sent: {total} detections, frame={frameId}");
@@ -435,96 +344,12 @@ namespace Nami
             finally { ArrayPool<byte>.Shared.Return(buffer); }
         }
 
-        private void SendImuData()
-        {
-            if (boatRigidbody == null || imus.Count == 0) return;
-            var now = Time.time;
-            var worldAngVel = boatRigidbody.angularVelocity;
-            var worldVel = boatRigidbody.linearVelocity;
-            var worldGrav = Physics.gravity;
-
-            foreach (var imu in imus)
-            {
-                if (imu.mount == null || !_imuStates.TryGetValue(imu.id, out var state)) continue;
-                var dt = now - state.prevTime;
-                if (dt <= 0) dt = 0.001f;
-
-                var accel = (worldVel - state.prevVelocity) / dt;
-                var bodyAngVel = imu.mount.InverseTransformDirection(worldAngVel);
-                var bodyAccel = imu.mount.InverseTransformDirection(accel - worldGrav);
-                var bodyMag = imu.mount.InverseTransformDirection(earthMagneticField);
-
-                var newState = state;
-                newState.currentGyroBias += AddNoise(new Vector3(biasDriftRate, biasDriftRate, biasDriftRate)) * dt;
-                newState.currentAccelBias += AddNoise(new Vector3(biasDriftRate, biasDriftRate, biasDriftRate)) * dt;
-                newState.currentMagBias += AddNoise(new Vector3(biasDriftRate, biasDriftRate, biasDriftRate)) * dt;
-                
-                var gyroOut = bodyAngVel + newState.currentGyroBias + AddNoise(gyroNoiseStdDev);
-                var accelOut = bodyAccel + newState.currentAccelBias + AddNoise(accelNoiseStdDev);
-                var magOut = bodyMag + newState.currentMagBias + AddNoise(magNoiseStdDev);
-
-                if (enableRawOutput) SendImuRaw(imu.id, gyroOut, accelOut, magOut, now, newState.rawBuffer);
-                if (enableAttitudeOutput)
-                {
-                    var e = imu.mount.eulerAngles;
-                    SendImuAtt(imu.id, NormalizeDeg(e.z), NormalizeDeg(e.x), NormalizeDeg(e.y), now, newState.attBuffer);
-                }
-
-                newState.prevVelocity = worldVel;
-                newState.prevTime = now;
-                _imuStates[imu.id] = newState;
-
-                if (logImuDebug && now >= _nextRadarLogTime) // Reusing log time for simplicity
-                {
-                    Debug.Log($"[SensorArraySimulator] IMU {imu.id}: gyro={gyroOut}, accel={accelOut}");
-                }
-            }
-        }
-
-        private void SendImuRaw(string id, Vector3 g, Vector3 a, Vector3 m, float t, byte[] buf)
-        {
-            int o = 0;
-            Array.Copy(MSG_IMU_RAW, 0, buf, o, 4); o += 4;
-            var idB = System.Text.Encoding.UTF8.GetBytes(id ?? "imu");
-            Array.Copy(idB, 0, buf, o, Mathf.Min(idB.Length, 16));
-            for (int i = idB.Length; i < 16; i++) buf[o + i] = 0;
-            o += 16;
-            EndianBitConverter.WriteInt64BE(buf, o, (long)(t * 1000000)); o += 8;
-            EndianBitConverter.WriteFloatBE(buf, o, g.x); o += 4;
-            EndianBitConverter.WriteFloatBE(buf, o, g.y); o += 4;
-            EndianBitConverter.WriteFloatBE(buf, o, g.z); o += 4;
-            EndianBitConverter.WriteFloatBE(buf, o, a.x); o += 4;
-            EndianBitConverter.WriteFloatBE(buf, o, a.y); o += 4;
-            EndianBitConverter.WriteFloatBE(buf, o, a.z); o += 4;
-            EndianBitConverter.WriteFloatBE(buf, o, m.x); o += 4;
-            EndianBitConverter.WriteFloatBE(buf, o, m.y); o += 4;
-            EndianBitConverter.WriteFloatBE(buf, o, m.z); o += 4;
-            _tx.Send(buf, 64, _telemetryEp);
-        }
-
-        private void SendImuAtt(string id, float r, float p, float y, float t, byte[] buf)
-        {
-            int o = 0;
-            Array.Copy(MSG_IMU_ATT, 0, buf, o, 4); o += 4;
-            var idB = System.Text.Encoding.UTF8.GetBytes(id ?? "imu");
-            Array.Copy(idB, 0, buf, o, Mathf.Min(idB.Length, 16));
-            for (int i = idB.Length; i < 16; i++) buf[o + i] = 0;
-            o += 16;
-            EndianBitConverter.WriteInt64BE(buf, o, (long)(t * 1000000)); o += 8;
-            EndianBitConverter.WriteFloatBE(buf, o, r); o += 4;
-            EndianBitConverter.WriteFloatBE(buf, o, p); o += 4;
-            EndianBitConverter.WriteFloatBE(buf, o, y); o += 4;
-            _tx.Send(buf, 40, _telemetryEp);
-        }
-
-        private static Vector3 AddNoise(Vector3 stdDev) => new Vector3(GaussianNoise(stdDev.x), GaussianNoise(stdDev.y), GaussianNoise(stdDev.z));
         private static float GaussianNoise(float stdDev)
         {
             float u1 = 1f - UnityEngine.Random.value, u2 = 1f - UnityEngine.Random.value;
             if (u1 <= 0) u1 = 1e-6f;
             return Mathf.Sqrt(-2f * Mathf.Log(u1)) * Mathf.Sin(2f * Mathf.PI * u2) * stdDev;
         }
-        private static float NormalizeDeg(float d) { d %= 360; return d > 180 ? d - 360 : (d < -180 ? d + 360 : d); }
 
         private void OnDrawGizmosSelected()
         {
@@ -540,4 +365,3 @@ namespace Nami
         }
     }
 }
-

@@ -5659,8 +5659,7 @@ MonoBehaviour:
   - id: right
     mount: {fileID: 485406503}
   - id: back
-    mount: {fileID: 485406503}
-  imus: []
+    mount: {fileID: 988983756}
   radarUpdateRateHz: 20
   azimuthResolutionDeg: 1
   maxRangeM: 100
@@ -5677,20 +5676,8 @@ MonoBehaviour:
   cfarGuardCells: 2
   cfarTrainingCells: 10
   antennaGain: 1
-  imuUpdateRateHz: 200
-  enableRawOutput: 1
-  enableAttitudeOutput: 1
-  gyroNoiseStdDev: {x: 0.01, y: 0.01, z: 0.01}
-  accelNoiseStdDev: {x: 0.1, y: 0.1, z: 0.1}
-  magNoiseStdDev: {x: 0.1, y: 0.1, z: 0.1}
-  gyroBias: {x: 0, y: 0, z: 0}
-  accelBias: {x: 0, y: 0, z: 0}
-  magBias: {x: 0, y: 0, z: 0}
-  biasDriftRate: 0.0001
-  earthMagneticField: {x: 0, y: 0, z: -50000}
-  logIntervalSec: 20
+  logIntervalSec: 100
   bypassCFAR: 0
-  logImuDebug: 1
 --- !u!1 &386967037
 GameObject:
   m_ObjectHideFlags: 0
@@ -33417,6 +33404,10 @@ PrefabInstance:
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: d76b6c13cdd8546eea61b4ca3b759b37,
+        type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1707497895}
     - targetCorrespondingSourceObject: {fileID: 8164078558771037576, guid: d76b6c13cdd8546eea61b4ca3b759b37,
         type: 3}
       insertIndex: -1
@@ -39254,7 +39245,7 @@ MonoBehaviour:
   biasDriftRate: 0.0001
   earthMagneticField: {x: 0, y: 0, z: -50000}
   logImuDebug: 1
-  debugLogIntervalSec: 100
+  debugLogIntervalSec: 20
 --- !u!114 &1589415835
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -39273,6 +39264,8 @@ MonoBehaviour:
   maxSteerDeg: 60
   updateRateHz: 6
   controlTimeoutSeconds: 1.5
+  logNmeaDebug: 1
+  debugLogIntervalSec: 20
 --- !u!1 &1601971930
 GameObject:
   m_ObjectHideFlags: 0
@@ -39573,6 +39566,33 @@ AudioSource:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+--- !u!1 &1707497894 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: d76b6c13cdd8546eea61b4ca3b759b37,
+    type: 3}
+  m_PrefabInstance: {fileID: 1394832487}
+  m_PrefabAsset: {fileID: 0}
+--- !u!65 &1707497895
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1707497894}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 1, y: 1, z: 1}
+  m_Center: {x: 0, y: 0, z: 0}
 --- !u!1 &1743796390
 GameObject:
   m_ObjectHideFlags: 0
@@ -76406,7 +76426,7 @@ PrefabInstance:
     - target: {fileID: 3193471337630893609, guid: e70416e3bc35d4004a9981d0ac102ba5,
         type: 3}
       propertyPath: m_Splines.Array.data[0].m_Knots.Array.data[7].Rotation.value.y
-      value: -0.45847228
+      value: -0.45847225
       objectReference: {fileID: 0}
     - target: {fileID: 3193471337630893609, guid: e70416e3bc35d4004a9981d0ac102ba5,
         type: 3}

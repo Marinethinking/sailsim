@@ -26,6 +26,12 @@ namespace Nami
         [Tooltip("Seconds before throttle/steering fail-safe when no control heartbeats arrive. Set <=0 to disable.")]
         public float controlTimeoutSeconds = 1.5f;
 
+        [Header("Debug")]
+        [Tooltip("Print periodic NMEA2000 debug lines to the Unity Console.")]
+        public bool logNmeaDebug = true;
+        [Tooltip("Seconds between NMEA debug logs.")]
+        public float debugLogIntervalSec = 20.0f;
+
         private UdpClient _tx;
         private UdpClient _rx;
         private IPEndPoint _telemetryEp;
@@ -34,6 +40,7 @@ namespace Nami
         private readonly byte[] _payloadBuffer = new byte[8];
         private long _lastHeartbeatTicks;
         private bool _controlFailSafeActive;
+        private float _nextDebugLogTime;
 
         private const uint PGN_POS_LATLON = 0x1F801;  // 129025 simplified
         private const uint PGN_COG_SOG = 0x1F802;  // 129026 simplified
@@ -185,6 +192,13 @@ namespace Nami
                 EndianBitConverter.WriteInt16BE(payload, 2, p);
                 EndianBitConverter.WriteInt16BE(payload, 4, y);
             });
+
+            // Throttled debug log
+            if (logNmeaDebug && Time.time >= _nextDebugLogTime)
+            {
+                _nextDebugLogTime = Time.time + debugLogIntervalSec;
+                Debug.Log($"[Nmea2000UdpBridge] TX Telemetry: Lat={gps.x:F6}, Lon={gps.y:F6}, COG={cogDeg:F1}°, SOG={speed:F2}m/s, Yaw={yaw:F1}°");
+            }
         }
 
         private void HandleControlFrame(byte[] buf)
